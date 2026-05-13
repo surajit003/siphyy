@@ -1,0 +1,140 @@
+"""Canonical telematics event schema.
+
+This is the framework contract. Adapters translate provider-specific shapes
+into these types. Detectors, agents, and storage all reason in these types.
+
+Schema is versioned via `schema_version`. Breaking changes bump the major
+version; new optional fields are non-breaking.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+EngineState = Literal["running", "idle", "stopped"]
+"""Vehicle motion state. Provider-independent."""
+
+DriverEventSubtype = Literal[
+    "harsh_brake",
+    "harsh_accel",
+    "sharp_turn",
+    "speeding",
+    "idling_start",
+    "idling_stop",
+    "ignition_on",
+    "ignition_off",
+]
+"""Discrete driver-attributable events. Add cautiously — adding a value here
+is a schema change that all adapters and detectors must handle."""
+
+
+class BaseEvent(BaseModel):
+    """Common fields on every canonical event."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    schema_version: Literal["1.0"] = "1.0"
+    vehicle_id: str = Field(
+        description="Canonical vehicle identifier. NOT the provider's raw vehicle ID — "
+        "adapters are expected to map provider IDs to canonical IDs."
+    )
+    timestamp: datetime = Field(
+        description="Event time in UTC. Adapters convert from local time at the boundary."
+    )
+    provider: str = Field(description="Name of the adapter that produced this event.")
+    provider_event_id: str | None = Field(
+        default=None,
+        description="Provider's native event ID, used for deduplication. "
+        "If the provider doesn't supply one, adapters can synthesize a stable ID.",
+    )
+    provider_extras: dict[str, object] = Field(
+        default_factory=dict,
+        description="Provider-specific fields that don't fit the canonical schema. "
+        "Preserved for traceability; never used by detectors or agents.",
+    )
+
+
+class TelemetryReading(BaseEvent):
+    """A snapshot of vehicle state at a point in time.
+
+    Most fields are optional because not every provider exposes every signal.
+    Adapters MUST NOT fabricate values — missing data stays None.
+    """
+
+    event_type: Literal["telemetry"] = "telemetry"
+
+    # Position
+    latitude: float | None = None
+    longitude: float | None = None
+    altitude_m: float | None = None
+
+    # Motion
+    speed_kmh: float | None = Field(default=None, ge=0, description="Always in km/h.")
+    heading_deg: int | None = Field(default=None, ge=0, lt=360)
+    odometer_km: float | None = Field(default=None, ge=0, description="Always in km.")
+
+    # Electrical
+    external_voltage_v: float | None = Field(default=None, ge=0)
+    battery_percent: float | None = Field(default=None, ge=0, le=100)
+
+    # State
+    ignition_on: bool | None = None
+    engine_state: EngineState | None = None
+
+    # Geocoded labels — preserved when provider supplies them
+    location_text: str | None = Field(
+        default=None,
+        description="Reverse-geocoded address if the provider supplies it. "
+        "Saves a separate geocoding API call for the LLM agent.",
+    )
+    poi_text: str | None = Field(
+        default=None,
+        description="Nearest point-of-interest description, e.g. '0.3 km from Pepsi Main Plant'.",
+    )
+
+
+class DriverEvent(BaseEvent):
+    """A discrete driver-attributable event.
+
+    These are typically server-computed by the provider (e.g. Samsara fires
+    harsh braking events). When the provider only exposes raw accelerometer
+    data, the adapter — not Tier 1 — is responsible for synthesizing these.
+    """
+
+    event_type: Literal["driver_event"] = "driver_event"
+
+    subtype: DriverEventSubtype
+    severity: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Provider-reported severity if available, normalized to 0-1.",
+    )
+    g_force: float | None = Field(
+        default=None,
+        ge=0,
+        description="Peak g-force for harsh-event subtypes.",
+    )
+    duration_seconds: int | None = Field(
+        default=None,
+        ge=0,
+        description="Duration for sustained events like speeding or idling.",
+    )
+
+    # Position context
+    latitude: float | None = None
+    longitude: float | None = None
+
+
+CanonicalEvent = Annotated[
+    TelemetryReading | DriverEvent,
+    Field(discriminator="event_type"),
+]
+"""Discriminated union over all canonical event types.
+
+Detectors and storage code should annotate against `CanonicalEvent`, not the
+individual types, so that adding new event types doesn't require touching them.
+"""
