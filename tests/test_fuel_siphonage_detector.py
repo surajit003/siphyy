@@ -18,6 +18,9 @@ def _reading(
     engine_state: EngineState | None = "stopped",
     ignition_on: bool | None = False,
     provider_event_id: str | None = None,
+    altitude_m: float | None = None,
+    pitch_deg: float | None = None,
+    roll_deg: float | None = None,
 ) -> TelemetryReading:
     return TelemetryReading(
         vehicle_id=vehicle_id,
@@ -28,6 +31,9 @@ def _reading(
         fuel_sensor_type="ble",
         engine_state=engine_state,
         ignition_on=ignition_on,
+        altitude_m=altitude_m,
+        pitch_deg=pitch_deg,
+        roll_deg=roll_deg,
     )
 
 
@@ -147,3 +153,47 @@ class TestFuelSiphonageDetector:
         detector = FuelSiphonageDetector(state_store=store)
         detector.process(_reading(minute_offset=0, fuel_level_raw=3000.0))
         assert store.get("fuel_siphonage:v1") is not None
+
+    def test_orientation_evidence_included_when_present(self) -> None:
+        """Slope context flows into evidence so the agent can reason about
+        post-climb settling and parked-on-incline false positives."""
+        detector = FuelSiphonageDetector()
+        detector.process(
+            _reading(
+                minute_offset=0,
+                fuel_level_raw=3000.0,
+                altitude_m=1180.0,
+                pitch_deg=6.5,
+            )
+        )
+        result = detector.process(
+            _reading(
+                minute_offset=10,
+                fuel_level_raw=2000.0,
+                altitude_m=1275.0,
+                pitch_deg=0.5,
+                roll_deg=-1.2,
+            )
+        )
+
+        assert result is not None
+        assert result.evidence["prior_altitude_m"] == 1180.0
+        assert result.evidence["current_altitude_m"] == 1275.0
+        assert result.evidence["altitude_delta_m"] == 95.0
+        assert result.evidence["prior_pitch_deg"] == 6.5
+        assert result.evidence["current_pitch_deg"] == 0.5
+        assert result.evidence["current_roll_deg"] == -1.2
+
+    def test_orientation_evidence_omitted_when_unknown(self) -> None:
+        """Evidence stays clean — no None-valued keys — when the provider
+        doesn't supply orientation data."""
+        detector = FuelSiphonageDetector()
+        detector.process(_reading(minute_offset=0, fuel_level_raw=3000.0))
+        result = detector.process(_reading(minute_offset=10, fuel_level_raw=2000.0))
+
+        assert result is not None
+        assert "current_altitude_m" not in result.evidence
+        assert "prior_altitude_m" not in result.evidence
+        assert "altitude_delta_m" not in result.evidence
+        assert "current_pitch_deg" not in result.evidence
+        assert "current_roll_deg" not in result.evidence

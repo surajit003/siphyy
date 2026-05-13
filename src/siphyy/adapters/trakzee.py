@@ -108,6 +108,15 @@ class TrakzeeAdapter(TelematicsAdapter):
         if ac_text:
             provider_extras["ac_raw"] = ac_text
 
+        # Orientation (pitch/roll) is not present in the default Trakzee
+        # positions export. The underlying Teltonika FMB920 firmware does
+        # expose it via AVL IDs 256 (Axis X / pitch) and 257 (Axis Y / roll);
+        # operators can enable those channels in the Trakzee data profile
+        # and they will arrive as additional columns. When that happens,
+        # promote them into canonical pitch_deg / roll_deg (in degrees,
+        # signed) here — see canonical.py for why these fields matter to
+        # the FuelSiphonageDetector.
+
         # Preserve provider-specific identifiers/metadata for traceability.
         for key in (
             "Vehicle_No",

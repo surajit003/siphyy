@@ -53,14 +53,20 @@ class FuelSiphonageDetector(Detector):
         key = self._state_key(event.vehicle_id)
         prior = self.state.get(key)
 
-        # Always record the latest reading so the next call has a baseline.
-        self.state.set(
-            key,
-            {
-                "fuel_level_raw": event.fuel_level_raw,
-                "timestamp": event.timestamp.isoformat(),
-            },
-        )
+        # Cache the orientation/altitude context too so the next call can
+        # tell whether the vehicle just climbed a grade or was tilted.
+        # Tier 1 doesn't act on this directly; it lands in evidence so the
+        # agent can reason about slope-effect false positives (see the
+        # `slope_effect` seed case).
+        current_state: dict[str, object] = {
+            "fuel_level_raw": event.fuel_level_raw,
+            "timestamp": event.timestamp.isoformat(),
+        }
+        if event.altitude_m is not None:
+            current_state["altitude_m"] = event.altitude_m
+        if event.pitch_deg is not None:
+            current_state["pitch_deg"] = event.pitch_deg
+        self.state.set(key, current_state)
 
         if prior is None:
             return None  # no baseline yet
@@ -95,6 +101,17 @@ class FuelSiphonageDetector(Detector):
         if drop_pct < self.threshold_pct:
             return None
 
+        evidence: dict[str, object] = {
+            "drop_pct": round(drop_pct, 4),
+            "prior_fuel_level_raw": prior_raw,
+            "current_fuel_level_raw": event.fuel_level_raw,
+            "elapsed_minutes": round(elapsed_minutes, 1),
+            "engine_state": event.engine_state,
+            "ignition_on": event.ignition_on,
+            "fuel_sensor_type": event.fuel_sensor_type,
+        }
+        self._add_orientation_evidence(evidence, event, prior)
+
         return InterestingEvent(
             detector_name=self.name,
             vehicle_id=event.vehicle_id,
@@ -107,17 +124,35 @@ class FuelSiphonageDetector(Detector):
                 f"{event.engine_state} with ignition off."
             ),
             confidence=0.6,
-            evidence={
-                "drop_pct": round(drop_pct, 4),
-                "prior_fuel_level_raw": prior_raw,
-                "current_fuel_level_raw": event.fuel_level_raw,
-                "elapsed_minutes": round(elapsed_minutes, 1),
-                "engine_state": event.engine_state,
-                "ignition_on": event.ignition_on,
-                "fuel_sensor_type": event.fuel_sensor_type,
-            },
+            evidence=evidence,
             triggering_event_id=event.provider_event_id,
         )
+
+    @staticmethod
+    def _add_orientation_evidence(
+        evidence: dict[str, object],
+        event: TelemetryReading,
+        prior: dict[str, object],
+    ) -> None:
+        """Attach altitude and pitch context so the agent can rule out
+        slope-effect false positives. Only adds fields that are actually
+        known — never None — so the agent doesn't have to filter them."""
+        if event.altitude_m is not None:
+            evidence["current_altitude_m"] = event.altitude_m
+        prior_alt = prior.get("altitude_m")
+        if isinstance(prior_alt, int | float):
+            evidence["prior_altitude_m"] = prior_alt
+            if event.altitude_m is not None:
+                evidence["altitude_delta_m"] = round(event.altitude_m - prior_alt, 1)
+
+        if event.pitch_deg is not None:
+            evidence["current_pitch_deg"] = event.pitch_deg
+        prior_pitch = prior.get("pitch_deg")
+        if isinstance(prior_pitch, int | float):
+            evidence["prior_pitch_deg"] = prior_pitch
+
+        if event.roll_deg is not None:
+            evidence["current_roll_deg"] = event.roll_deg
 
     @staticmethod
     def _severity_for(drop_pct: float) -> Severity:

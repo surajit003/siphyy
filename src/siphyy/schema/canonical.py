@@ -119,6 +119,39 @@ class TelemetryReading(BaseEvent):
         "thermal contraction on overnight fuel-level drops.",
     )
 
+    # Orientation — provider-dependent. Some telematics devices expose
+    # accelerometer-derived attitude (Teltonika FMx via AVL IDs 256/257,
+    # Queclink GLx, OEM CAN); cheaper trackers don't. Leave as None when
+    # the provider has no signal — never approximate from altitude or
+    # GPS heading.
+    pitch_deg: float | None = Field(
+        default=None,
+        ge=-90,
+        le=90,
+        description=(
+            "Vehicle pitch (front-to-back tilt) in degrees, signed; positive = "
+            "nose up. "
+            "WHY THIS MATTERS FOR FUEL SIPHONAGE: fuel level sensors sit at a "
+            "fixed point inside a horizontal tank. When the truck pitches, fuel "
+            "pools at one end and the reading shifts even though no fuel left "
+            "the tank. A 10° pitch on a 1000 L tank can show ~20% apparent "
+            "change — enough to clear most Tier 1 thresholds. Without pitch "
+            "context, 'parked on a slope' and 'just finished a climb' "
+            "masquerade as siphonage."
+        ),
+    )
+    roll_deg: float | None = Field(
+        default=None,
+        ge=-90,
+        le=90,
+        description=(
+            "Vehicle roll (side-to-side tilt) in degrees, signed; positive = "
+            "right side up. Less load-bearing than pitch for siphonage on "
+            "longitudinal tanks, but matters for saddle tanks and tanker "
+            "compartments with side-mounted probes."
+        ),
+    )
+
     # Geocoded labels — preserved when provider supplies them
     location_text: str | None = Field(
         default=None,

@@ -34,6 +34,23 @@ That's the whole API surface. Everything else is internal to your adapter.
 
 5. **Stay pure.** No network calls inside the adapter. No DB writes. No shared mutable state. Adapters should be safe to call from multiple threads.
 
+## Orientation fields (pitch_deg, roll_deg) — opt-in but important for fuel work
+
+`TelemetryReading` exposes two optional orientation fields: `pitch_deg` (front-to-back tilt) and `roll_deg` (side-to-side tilt), both signed degrees in the range −90…+90. Populate them when your provider exposes them; leave them as `None` otherwise. Never approximate them from altitude or GPS heading — those proxies are unreliable enough to do more harm than good.
+
+**Why they matter:** fuel level sensors are fixed points inside a horizontal tank. When a truck pitches, fuel pools at one end and the sensor reads differently even though no fuel has moved. A 10° pitch on a 1000 L tank can show ~20% apparent change — well above the FuelSiphonageDetector's default 15% threshold. Without pitch context flowing through to Tier 2, "parked on a hill" and "just finished a climb" look identical to siphonage.
+
+**Where to find the data in common device families:**
+
+| Device family | Pitch / roll source |
+|---|---|
+| Teltonika FM-series (FMB920, FMB140, FMC650, …) | AVL IDs **256** (Axis X / pitch) and **257** (Axis Y / roll). Enable in the device's I/O profile via Configurator or the operator's portal. |
+| Queclink GLx | `Pitch` / `Roll` fields when the accelerometer profile is enabled. |
+| Samsara | `vehicleStats.pitchDegrees` / `rollDegrees` (where supported by the hardware tier). |
+| OEM CAN-bus integrations | SAE J1939 PGN 61485 (Vehicle Dynamic Stability Control 1) carries body pitch + roll. |
+
+**If your provider doesn't expose pitch:** leave both fields `None`. The framework already handles that path — the Tier 1 detector still fires, and the Tier 2 agent has historical cases (including the `slope_effect` false positive) it can lean on with whatever altitude context is available.
+
 ## Reference: TrakzeeAdapter
 
 The Trakzee adapter is the reference implementation. Read `src/siphyy/adapters/trakzee.py` end-to-end before writing your own — it demonstrates every pattern you'll need:

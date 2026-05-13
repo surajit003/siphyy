@@ -147,6 +147,56 @@ class TestFuelFields:
         assert event.tank_capacity_liters == 500.0
 
 
+class TestOrientationFields:
+    """pitch_deg and roll_deg let detectors and agents reason about
+    slope-effect false positives — see seed case fuel_theft_0006."""
+
+    def test_default_to_none(self) -> None:
+        event = TelemetryReading(
+            vehicle_id="v1",
+            timestamp=datetime(2026, 5, 13, 10, 0, tzinfo=UTC),
+            provider="test",
+        )
+        assert event.pitch_deg is None
+        assert event.roll_deg is None
+
+    def test_pitch_deg_bounded(self) -> None:
+        with pytest.raises(ValidationError, match="less than or equal to 90"):
+            TelemetryReading(
+                vehicle_id="v1",
+                timestamp=datetime(2026, 5, 13, 10, 0, tzinfo=UTC),
+                provider="test",
+                pitch_deg=95.0,
+            )
+        with pytest.raises(ValidationError, match="greater than or equal to -90"):
+            TelemetryReading(
+                vehicle_id="v1",
+                timestamp=datetime(2026, 5, 13, 10, 0, tzinfo=UTC),
+                provider="test",
+                pitch_deg=-95.0,
+            )
+
+    def test_roll_deg_bounded(self) -> None:
+        with pytest.raises(ValidationError):
+            TelemetryReading(
+                vehicle_id="v1",
+                timestamp=datetime(2026, 5, 13, 10, 0, tzinfo=UTC),
+                provider="test",
+                roll_deg=120.0,
+            )
+
+    def test_accepts_signed_values_at_bounds(self) -> None:
+        event = TelemetryReading(
+            vehicle_id="v1",
+            timestamp=datetime(2026, 5, 13, 10, 0, tzinfo=UTC),
+            provider="test",
+            pitch_deg=-7.5,
+            roll_deg=3.2,
+        )
+        assert event.pitch_deg == -7.5
+        assert event.roll_deg == 3.2
+
+
 class TestDriverEvent:
     def test_harsh_brake(self) -> None:
         event = DriverEvent(

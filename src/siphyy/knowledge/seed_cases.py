@@ -181,4 +181,55 @@ SEED_CASES: list[IncidentCase] = [
         confidence=0.88,
         occurred_at=datetime(2025, 10, 8, 13, 45),
     ),
+    IncidentCase(
+        case_id="fuel_theft_0006",
+        category="false_positive",
+        severity="low",
+        region="Zambia",
+        vehicle_type="tanker",
+        summary=(
+            "Fuel level dropped 18% in 7 minutes immediately after the "
+            "vehicle parked at the top of a grade. Altitude had risen 95 m "
+            "over the prior 4 km of travel (~1.4° average pitch, peaking "
+            "~7° on the final incline). Engine off, ignition off."
+        ),
+        diagnosis=(
+            "Sensor artifact from fuel redistribution, not theft. The "
+            "tanker's longitudinal BLE probe sits ~30 cm forward of the "
+            "tank's geometric centre. While climbing, fuel pooled at the "
+            "rear and the probe sat in a relatively shallow column; once "
+            "the vehicle parked and engine vibration stopped, fuel "
+            "re-settled level and the probe reading dropped accordingly. "
+            "Manual dip after the alert confirmed no fuel had left the tank."
+        ),
+        resolution=(
+            "Detection now flags readings within the first ~10 minutes "
+            "after engine-off following a sustained climb. Pitch context "
+            "(prior_pitch_deg or altitude_delta_m in the InterestingEvent "
+            "evidence) is what lets Tier 2 rule this out. Slope-event "
+            "suppression cut false positives on hilly routes by ~70%."
+        ),
+        lessons=[
+            "A large fuel drop in the first few minutes after parking, "
+            "preceded by sustained altitude gain or sustained pitch, is "
+            "almost always sensor settling — wait for fuel to level "
+            "before treating the reading as authoritative",
+            "Pitch above ~5° at either compared reading invalidates the "
+            "comparison for longitudinal tank sensors; this is a stronger "
+            "rule for tankers than for boxy fuel tanks",
+            "When the device doesn't expose pitch directly, "
+            "Δaltitude_m over the prior few kilometres is a usable "
+            "slope proxy — sustained climb > ~50 m in < 10 min is the "
+            "danger zone for post-park fuel settling",
+        ],
+        tags=[
+            "false_positive",
+            "slope_effect",
+            "post_climb_settling",
+            "tanker",
+            "pitch",
+        ],
+        confidence=0.95,
+        occurred_at=datetime(2026, 2, 9, 14, 30),
+    ),
 ]
