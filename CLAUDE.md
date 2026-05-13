@@ -22,7 +22,7 @@ Open-source agentic framework for fleet telematics. Provider-agnostic canonical 
 
 ## Code conventions
 
-- Python 3.11+ — use modern syntax (`X | Y`, `list[X]`, `datetime.UTC`).
+- Python 3.14+ — use modern syntax (`X | Y`, `list[X]`, `datetime.UTC`).
 - Type-hint every function signature. `from __future__ import annotations` at the top of every module.
 - Pydantic models for all schemas. `ConfigDict(extra="forbid")` so typos are caught.
 - Use `pathlib.Path`, not `os.path`.

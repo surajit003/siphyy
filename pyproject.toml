@@ -7,7 +7,7 @@ name = "siphyy"
 version = "0.1.0"
 description = "Open-source agentic framework for fleet telematics analytics, fuel anomaly detection, and predictive maintenance."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 authors = [
     { name = "Surajit Das", email = "you@example.com" },
@@ -17,8 +17,7 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
@@ -38,23 +37,35 @@ llm = ["anthropic>=0.34", "openai>=1.40"]
 # pgvector / production storage
 storage = ["psycopg[binary]>=3.1", "sqlalchemy>=2.0"]
 
-# Development tooling. Run: uv pip install -e ".[dev]"
+# Development tooling for pip-based installs. Run: `uv pip install -e ".[dev]"`
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.1",
+    "python-dotenv>=1.0",
     "ruff>=0.5",
     "mypy>=1.10",
     "pre-commit>=3.7",
 ]
+
+[dependency-groups]
+# Development tooling for uv-managed project environments.
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "python-dotenv>=1.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+]
+
+[tool.uv]
+default-groups = ["dev"]
 
 [project.urls]
 Homepage = "https://github.com/siphyy/siphyy-core"
 Documentation = "https://github.com/siphyy/siphyy-core#readme"
 Repository = "https://github.com/siphyy/siphyy-core"
 Issues = "https://github.com/siphyy/siphyy-core/issues"
-
-[project.scripts]
-siphyy = "siphyy.cli:main"
 
 # ----------------------------------------------------------------------
 # Tool configurations
@@ -65,7 +76,7 @@ packages = ["src/siphyy"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py314"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -88,7 +99,7 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.14"
 strict = true
 warn_unused_configs = true
 disallow_untyped_defs = true

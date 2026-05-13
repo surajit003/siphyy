@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 from siphyy.adapters.base import TelematicsAdapter
-from siphyy.schema import CanonicalEvent, EngineState, TelemetryReading
+from siphyy.schema import CanonicalEvent, EngineState, FuelSensorType, TelemetryReading
 
 # Trakzee export timestamps are in the fleet operator's local time, not UTC.
 # Default here is Lusaka (CAT, UTC+2) since the reference data is from a
@@ -92,8 +92,17 @@ class TrakzeeAdapter(TelematicsAdapter):
         # adapter against real exports.
         provider_extras: dict[str, object] = {}
         fuel_aux = self._parse_aux_json(row.get("Fuel"))
+        fuel_level_raw: float | None = None
+        fuel_sensor_type: FuelSensorType | None = None
         if fuel_aux:
             provider_extras["auxiliary_channels"] = fuel_aux
+            primary_ble = self._primary_ble_fuel(fuel_aux)
+            if primary_ble is not None:
+                # Trakzee exposes BLE readings as raw sensor counts, not
+                # calibrated percent or volume. Per-vehicle calibration lives
+                # outside the adapter, so percent/liters stay None.
+                fuel_level_raw = primary_ble
+                fuel_sensor_type = "ble"
 
         ac_text = self._clean_text(row.get("AC"))
         if ac_text:
@@ -127,6 +136,8 @@ class TrakzeeAdapter(TelematicsAdapter):
             battery_percent=battery_percent,
             ignition_on=ignition_on,
             engine_state=engine_state,
+            fuel_level_raw=fuel_level_raw,
+            fuel_sensor_type=fuel_sensor_type,
             location_text=location_text,
             poi_text=poi_text,
             provider_extras=provider_extras,
@@ -142,8 +153,23 @@ class TrakzeeAdapter(TelematicsAdapter):
         try:
             local = datetime.strptime(s, "%d-%m-%Y %H:%M:%S")
             return local.replace(tzinfo=self.source_tz).astimezone(UTC)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
+
+    def _primary_ble_fuel(self, aux: list[dict[str, Any]]) -> float | None:
+        """First BLE Fuel Level sensor's raw value, or None if absent.
+
+        Multi-sensor trucks (main + reserve tanks) report multiple BLE
+        channels; promoting only the first keeps the canonical record
+        single-valued. Callers needing every sensor read
+        ``provider_extras["auxiliary_channels"]`` directly.
+        """
+        for entry in aux:
+            if not isinstance(entry, dict):
+                continue
+            if "BLE Fuel Level" in str(entry.get("port_name", "")):
+                return self._safe_float(entry.get("value"))
+        return None
 
     def _parse_aux_json(self, raw: object) -> list[dict[str, Any]] | None:
         if raw is None:
@@ -154,7 +180,7 @@ class TrakzeeAdapter(TelematicsAdapter):
         try:
             parsed = json.loads(s) if isinstance(raw, str) else raw
             return parsed if isinstance(parsed, list) and parsed else None
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return None
 
     def _safe_float(self, raw: object) -> float | None:
@@ -166,7 +192,7 @@ class TrakzeeAdapter(TelematicsAdapter):
         try:
             f = float(raw)  # type: ignore[arg-type]
             return None if math.isnan(f) else f
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
 
     def _safe_int(self, raw: object) -> int | None:

@@ -17,6 +17,10 @@ from pydantic import BaseModel, ConfigDict, Field
 EngineState = Literal["running", "idle", "stopped"]
 """Vehicle motion state. Provider-independent."""
 
+FuelSensorType = Literal["ble", "capacitive", "ultrasonic", "oem_can", "calculated"]
+"""Fuel level sensor provenance. Detectors use this to pick noise thresholds —
+BLE add-on sensors are noisier than OEM CAN readings, for example."""
+
 DriverEventSubtype = Literal[
     "harsh_brake",
     "harsh_accel",
@@ -83,6 +87,37 @@ class TelemetryReading(BaseEvent):
     # State
     ignition_on: bool | None = None
     engine_state: EngineState | None = None
+
+    # Fuel — primary input for siphonage detectors. Some providers report
+    # calibrated percent/liters directly; others (notably aftermarket BLE
+    # sensors) report only a raw reading and require per-vehicle calibration
+    # to convert. Adapters without calibration MUST leave the calibrated
+    # fields None rather than fabricate them.
+    fuel_level_percent: float | None = Field(default=None, ge=0, le=100)
+    fuel_level_liters: float | None = Field(default=None, ge=0)
+    fuel_level_raw: float | None = Field(
+        default=None,
+        ge=0,
+        description="Uncalibrated sensor reading in whatever unit the sensor emits. "
+        "Useful when calibration isn't available — relative changes still inform "
+        "detectors even when absolute volume isn't known.",
+    )
+    fuel_sensor_type: FuelSensorType | None = None
+    tank_capacity_liters: float | None = Field(
+        default=None,
+        gt=0,
+        description="Vehicle metadata, when known. Needed by detectors that reason in "
+        "absolute volumes — e.g. thermal-contraction expected drop ≈ "
+        "capacity * 0.0008 * dT_celsius for diesel.",
+    )
+
+    # Environment
+    ambient_temperature_c: float | None = Field(
+        default=None,
+        description="Ambient air temperature at the vehicle, if the provider supplies "
+        "it or a weather join is performed upstream. Required to rule out "
+        "thermal contraction on overnight fuel-level drops.",
+    )
 
     # Geocoded labels — preserved when provider supplies them
     location_text: str | None = Field(

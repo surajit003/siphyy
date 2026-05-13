@@ -10,6 +10,7 @@ from siphyy.schema.canonical import (
     DriverEvent,
     DriverEventSubtype,
     EngineState,
+    FuelSensorType,
     TelemetryReading,
 )
 from siphyy.schema.case import (
@@ -17,6 +18,10 @@ from siphyy.schema.case import (
     CaseCategory,
     IncidentCase,
     Severity,
+)
+from siphyy.schema.interesting import (
+    InterestingCategory,
+    InterestingEvent,
 )
 
 __all__ = [
@@ -27,7 +32,10 @@ __all__ = [
     "DriverEvent",
     "DriverEventSubtype",
     "EngineState",
+    "FuelSensorType",
     "IncidentCase",
+    "InterestingCategory",
+    "InterestingEvent",
     "Severity",
     "TelemetryReading",
 ]

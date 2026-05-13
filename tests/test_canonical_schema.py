@@ -77,6 +77,76 @@ class TestTelemetryReading:
             )
 
 
+class TestFuelFields:
+    """Fuel and environment fields added so siphonage detectors don't have to
+    reach into provider_extras for their primary signal."""
+
+    def test_fuel_fields_default_to_none(self) -> None:
+        event = TelemetryReading(
+            vehicle_id="v1",
+            timestamp=datetime(2026, 5, 13, 10, 0, tzinfo=UTC),
+            provider="test",
+        )
+        assert event.fuel_level_percent is None
+        assert event.fuel_level_liters is None
+        assert event.fuel_level_raw is None
+        assert event.fuel_sensor_type is None
+        assert event.tank_capacity_liters is None
+        assert event.ambient_temperature_c is None
+
+    def test_fuel_level_percent_upper_bound(self) -> None:
+        with pytest.raises(ValidationError, match="less than or equal to 100"):
+            TelemetryReading(
+                vehicle_id="v1",
+                timestamp=datetime(2026, 5, 13, 10, 0, tzinfo=UTC),
+                provider="test",
+                fuel_level_percent=101.0,
+            )
+
+    def test_fuel_level_percent_lower_bound(self) -> None:
+        with pytest.raises(ValidationError, match="greater than or equal to 0"):
+            TelemetryReading(
+                vehicle_id="v1",
+                timestamp=datetime(2026, 5, 13, 10, 0, tzinfo=UTC),
+                provider="test",
+                fuel_level_percent=-1.0,
+            )
+
+    def test_tank_capacity_must_be_positive(self) -> None:
+        with pytest.raises(ValidationError, match="greater than 0"):
+            TelemetryReading(
+                vehicle_id="v1",
+                timestamp=datetime(2026, 5, 13, 10, 0, tzinfo=UTC),
+                provider="test",
+                tank_capacity_liters=0.0,
+            )
+
+    def test_fuel_sensor_type_literal_rejects_invalid(self) -> None:
+        with pytest.raises(ValidationError):
+            TelemetryReading(
+                vehicle_id="v1",
+                timestamp=datetime(2026, 5, 13, 10, 0, tzinfo=UTC),
+                provider="test",
+                fuel_sensor_type="laser",  # type: ignore[arg-type]
+            )
+
+    def test_full_fuel_record(self) -> None:
+        event = TelemetryReading(
+            vehicle_id="v1",
+            timestamp=datetime(2026, 5, 13, 10, 0, tzinfo=UTC),
+            provider="test",
+            fuel_level_percent=72.5,
+            fuel_level_liters=362.5,
+            fuel_level_raw=3597.0,
+            fuel_sensor_type="ble",
+            tank_capacity_liters=500.0,
+            ambient_temperature_c=21.4,
+        )
+        assert event.fuel_level_percent == 72.5
+        assert event.fuel_sensor_type == "ble"
+        assert event.tank_capacity_liters == 500.0
+
+
 class TestDriverEvent:
     def test_harsh_brake(self) -> None:
         event = DriverEvent(

@@ -6,6 +6,17 @@ from pathlib import Path
 
 import pytest
 
+# Soft-load .env so integration tests that depend on LLM API keys can
+# pick them up automatically without a wrapper script. No-op in CI, where
+# secrets land in env directly. Soft import means the package still works
+# without python-dotenv installed (it's only in [dev]).
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).parent.parent / ".env")
+except ImportError:
+    pass
+
 FIXTURES = Path(__file__).parent / "fixtures"
 
 

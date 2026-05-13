@@ -48,10 +48,55 @@ class TestTrakzeeAdapter:
         assert event.ignition_on is True
 
     def test_ble_fuel_captured_in_provider_extras(self, trakzee_sample_row: dict) -> None:
+        """Raw auxiliary channels are still preserved for multi-sensor cases
+        and traceability, even though the primary reading is promoted."""
         adapter = TrakzeeAdapter()
         event = next(iter(adapter.adapt([trakzee_sample_row])))
         assert event.provider_extras.get("auxiliary_channels") == [
             {"port_name": "BLE Fuel Level 1", "value": 3597}
+        ]
+
+    def test_ble_fuel_promoted_to_canonical_fields(self, trakzee_sample_row: dict) -> None:
+        """The detector tier reads fuel_level_raw, not provider_extras."""
+        adapter = TrakzeeAdapter()
+        event = next(iter(adapter.adapt([trakzee_sample_row])))
+        assert event.fuel_level_raw == 3597.0
+        assert event.fuel_sensor_type == "ble"
+
+    def test_calibrated_fuel_fields_left_none_without_calibration(
+        self, trakzee_sample_row: dict
+    ) -> None:
+        """Trakzee BLE readings are raw counts. Without per-vehicle calibration
+        the adapter must not fabricate percent/liters."""
+        adapter = TrakzeeAdapter()
+        event = next(iter(adapter.adapt([trakzee_sample_row])))
+        assert event.fuel_level_percent is None
+        assert event.fuel_level_liters is None
+        assert event.tank_capacity_liters is None
+
+    def test_fuel_fields_none_when_no_aux_channels(self, trakzee_missing_data_row: dict) -> None:
+        adapter = TrakzeeAdapter()
+        event = next(iter(adapter.adapt([trakzee_missing_data_row])))
+        assert event.fuel_level_raw is None
+        assert event.fuel_sensor_type is None
+        assert event.fuel_level_percent is None
+        assert event.fuel_level_liters is None
+
+    def test_picks_first_ble_fuel_in_multi_sensor_row(self, trakzee_sample_row: dict) -> None:
+        """Multi-sensor trucks report multiple BLE channels; the canonical
+        record carries the first one, the rest stay in provider_extras."""
+        row = dict(trakzee_sample_row)
+        row["Fuel"] = (
+            '[{"port_name": "BLE Fuel Level 1", "value": 3597},'
+            ' {"port_name": "BLE Fuel Level 2", "value": 1820}]'
+        )
+        adapter = TrakzeeAdapter()
+        event = next(iter(adapter.adapt([row])))
+        assert event.fuel_level_raw == 3597.0
+        # All channels are still available for callers that want them.
+        assert event.provider_extras["auxiliary_channels"] == [
+            {"port_name": "BLE Fuel Level 1", "value": 3597},
+            {"port_name": "BLE Fuel Level 2", "value": 1820},
         ]
 
     def test_location_text_preserved(self, trakzee_sample_row: dict) -> None:

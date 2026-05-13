@@ -1,12 +1,30 @@
 """Tier 2 LLM agents.
 
 Agents take `InterestingEvent`s from Tier 1 detectors plus retrieved
-context (cases, OEM manuals) and produce structured interpretation reports
-via an LLM with constrained output schemas.
+context (cases from the CaseBase, OEM manuals) and produce structured
+reports via an LLM with constrained output schemas.
+
+Providers are pluggable: the `LLMClient` Protocol lets developers swap
+OpenAI for Anthropic, Gemini, Ollama, or any OpenAI-compatible endpoint
+without touching agent code.
 """
 
-# TODO: Implement and re-export
-# from siphyy.agents.fuel_anomaly import FuelAnomalyAgent
-# from siphyy.agents.maintenance_risk import MaintenanceRiskAgent
+from siphyy.agents.anthropic_client import AnthropicLLMClient
+from siphyy.agents.base import Agent, LLMClient, MockLLMClient
+from siphyy.agents.fuel_anomaly import (
+    FuelAnomalyAgent,
+    FuelAnomalyAssessment,
+    FuelAnomalyReport,
+)
+from siphyy.agents.openai_client import OpenAILLMClient
 
-__all__: list[str] = []
+__all__ = [
+    "Agent",
+    "AnthropicLLMClient",
+    "FuelAnomalyAgent",
+    "FuelAnomalyAssessment",
+    "FuelAnomalyReport",
+    "LLMClient",
+    "MockLLMClient",
+    "OpenAILLMClient",
+]

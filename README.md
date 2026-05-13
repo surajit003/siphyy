@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/siphyy/siphyy-core/actions/workflows/ci.yml/badge.svg)](https://github.com/siphyy/siphyy-core/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
 
 ## What it does
 
@@ -42,19 +42,45 @@ uv pip install "siphyy[trakzee,llm]"
 
 ```python
 from siphyy.adapters import TrakzeeAdapter
-from siphyy.schema import CanonicalEvent
-
-# 1. Translate provider data into canonical events
-adapter = TrakzeeAdapter()
-events = list(adapter.adapt(trakzee_rows))  # provider-specific dicts in, canonical out
-
-# 2. Hand them to a Tier 1 detector
+from siphyy.agents import FuelAnomalyAgent, OpenAILLMClient
 from siphyy.detectors import FuelSiphonageDetector
+from siphyy.knowledge import SEED_CASES
+from siphyy.schema import CaseBase
+
+# 1. Translate raw provider rows into canonical TelemetryReading events.
+adapter = TrakzeeAdapter()
+
+# 2. Tier 1: cheap, deterministic rules surface candidates.
 detector = FuelSiphonageDetector()
-for event in events:
-    if anomaly := detector.process(event):
-        print(anomaly)
+
+# 3. Tier 2: an LLM-grounded agent interprets each candidate against
+#    historical cases. The LLMClient is pluggable — swap OpenAILLMClient
+#    for an Anthropic / Gemini / Ollama implementation without touching
+#    agent code (see "Bring your own LLM" below).
+agent = FuelAnomalyAgent(
+    llm_client=OpenAILLMClient(),  # reads OPENAI_API_KEY from env
+    case_base=CaseBase(SEED_CASES),
+)
+
+for event in adapter.adapt(trakzee_rows):
+    if (interesting := detector.process(event)) and (report := agent.process(interesting)):
+        print(report.assessment, report.confidence, report.summary)
 ```
+
+### Bring your own LLM
+
+`LLMClient` is a `Protocol` with a single method. To use a different provider, implement it in ~20 lines:
+
+```python
+from pydantic import BaseModel
+from siphyy.agents import LLMClient
+
+class MyAnthropicClient:  # satisfies LLMClient structurally
+    def complete[T: BaseModel](self, *, system, user, response_model: type[T]) -> T:
+        ...  # call Anthropic's tool-use endpoint, return response_model(**parsed)
+```
+
+The agent itself doesn't import `anthropic` or `openai` — only the client implementation does, so optional extras stay optional.
 
 ## Why open source
 
@@ -62,11 +88,11 @@ The framework is Apache 2.0 and always will be. The plumbing — canonical schem
 
 ## Writing your own adapter
 
-The whole point of the canonical schema is that you don't have to wait for us to support your telematics provider. Subclass `TelematicsAdapter` in ~50 lines, run `siphyy validate-adapter`, and you're integrated. See [docs/writing-adapters.md](docs/writing-adapters.md).
+The whole point of the canonical schema is that you don't have to wait for us to support your telematics provider. Subclass `TelematicsAdapter` in ~50 lines and you're integrated. See [docs/writing-adapters.md](docs/writing-adapters.md) — `TrakzeeAdapter` is the reference implementation.
 
 ## Project status
 
-Alpha. The schema, the Trakzee adapter, and the fuel siphonage detector are stable. The LLM agent, additional adapters, and the storage backend are in active development. Pin to a specific version until 1.0.
+Alpha. The canonical schema, the Trakzee adapter, the `FuelSiphonageDetector`, and the `FuelAnomalyAgent` are stable today. Additional provider adapters, additional detectors and agents, the CLI, and the storage backend are still in active development — track [CHANGELOG.md](CHANGELOG.md) for what lands when. Pin to a specific version until 1.0.
 
 ## License
 
