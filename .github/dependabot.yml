@@ -1,0 +1,86 @@
+# Dependabot keeps dependencies fresh without flooding the PR queue.
+# Weekly cadence on Mondays; minor + patch updates are grouped into one
+# PR per ecosystem so a quiet week is one merge, not fifteen. Major
+# updates land as individual PRs so they get human review.
+#
+# Security updates bypass the schedule and grouping — Dependabot ships
+# those immediately regardless of what's configured here.
+
+version: 2
+
+updates:
+  # ── Core library: pyproject.toml + uv.lock ─────────────────────
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      python-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── Demo app: apps/demo/requirements.txt ───────────────────────
+  - package-ecosystem: "pip"
+    directory: "/apps/demo"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "python"
+      - "demo"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      demo-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── GitHub Actions versions ────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # ── Docker base image for the demo Space ───────────────────────
+  - package-ecosystem: "docker"
+    directory: "/apps/demo"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 2
+    labels:
+      - "dependencies"
+      - "docker"
+      - "demo"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
