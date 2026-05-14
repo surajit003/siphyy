@@ -1,0 +1,64 @@
+name: Deploy demo to HuggingFace Spaces
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/demo/**"
+      - ".github/workflows/deploy-demo.yml"
+  workflow_dispatch:
+
+# Only one deploy at a time. If a fresh push lands while one is mid-flight,
+# cancel the in-flight run and start the new one — the Space only cares
+# about the latest state.
+concurrency:
+  group: hf-demo-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Sync apps/demo to HuggingFace Space
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push apps/demo to HuggingFace Space repo
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: surajit003
+          HF_SPACE: siphyy
+        run: |
+          set -euo pipefail
+
+          if [ -z "${HF_TOKEN:-}" ]; then
+            echo "ERROR: HF_TOKEN secret is not set." >&2
+            echo "Create one at https://huggingface.co/settings/tokens (Write permission)" >&2
+            echo "then add it as a GitHub repo secret named HF_TOKEN." >&2
+            exit 1
+          fi
+
+          # Clone the HF Space repo into a scratch dir. The user portion of the
+          # URL must be present but the value doesn't matter — HF uses the token.
+          git clone --depth 1 \
+            "https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${HF_SPACE}" \
+            /tmp/hf-space
+
+          # Replace the Space's contents with apps/demo while keeping its .git.
+          shopt -s extglob dotglob
+          rm -rf /tmp/hf-space/!(.git)
+          cp -r apps/demo/. /tmp/hf-space/
+          shopt -u extglob dotglob
+
+          cd /tmp/hf-space
+
+          # No-op if nothing changed (e.g. workflow re-triggered with no diff).
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to deploy."
+            exit 0
+          fi
+
+          git config user.email "ci@github-actions.local"
+          git config user.name "siphyy-core CI"
+          git add -A
+          git commit -m "Auto-deploy from siphyy-core@${GITHUB_SHA::7}"
+          git push
