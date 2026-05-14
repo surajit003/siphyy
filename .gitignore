@@ -87,3 +87,7 @@ secrets/
 docs/_build/
 site/
 site/
+
+# Local-only content (learning curriculum, drafts, internal notes).
+# Never committed; never pushed.
+/private/
