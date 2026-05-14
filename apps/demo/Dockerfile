@@ -5,6 +5,14 @@
 
 FROM python:3.14-slim
 
+# git is required by requirements.txt to fetch `siphyy @ git+https://...`.
+# The slim image strips it by default. ca-certificates is what lets git
+# verify the GitHub TLS handshake — usually present in slim, included
+# explicitly so a future Debian point-release change can't surprise us.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
 # HF Spaces require running as a non-root user.
 ARG USERNAME=user
 ARG UID=1000
