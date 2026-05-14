@@ -7,6 +7,7 @@ hide:
 
 > Open-source agentic framework for fleet telematics — fuel anomaly detection, predictive maintenance, and driver-behaviour intelligence, with a provider-agnostic canonical schema and structured LLM reasoning.
 
+[![PyPI](https://img.shields.io/pypi/v/siphyy.svg)](https://pypi.org/project/siphyy/)
 [![CI](https://github.com/surajit003/siphyy/actions/workflows/ci.yml/badge.svg)](https://github.com/surajit003/siphyy/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
@@ -38,16 +39,47 @@ The output is structured, auditable, and ready to be wired into fleet management
 
 Read [the architecture concepts](concepts/architecture.md) for the long version.
 
-## Try it in 5 minutes
+## Install
 
 ```bash
-git clone https://github.com/surajit003/siphyy.git
-cd siphyy
-uv sync
-uv run python examples/quickstart.py
+pip install "siphyy[trakzee,llm]"
 ```
 
-Or hit the [live demo](https://huggingface.co/spaces/surajit003/siphyy) — upload a Trakzee export (or use the bundled sample), watch the pipeline run step by step, see every prompt the LLM receives.
+## What it looks like to use
+
+```python
+from siphyy.adapters import TrakzeeAdapter
+from siphyy.agents import FuelAnomalyAgent, OpenAILLMClient
+from siphyy.detectors import FuelSiphonageDetector
+from siphyy.knowledge import SEED_CASES
+from siphyy.schema import CaseBase
+
+adapter = TrakzeeAdapter()
+detector = FuelSiphonageDetector()
+agent = FuelAnomalyAgent(
+    llm_client=OpenAILLMClient(),
+    case_base=CaseBase(SEED_CASES),
+)
+
+for event in adapter.adapt(trakzee_rows):
+    if (interesting := detector.process(event)) and (report := agent.process(interesting)):
+        print(report.assessment, report.confidence, report.summary)
+```
+
+Three lines of setup, one loop. See the [tutorial](tutorial/index.md) for the per-tier walkthrough.
+
+## Try it in 5 minutes
+
+Either path:
+
+- **Hosted demo** — <https://huggingface.co/spaces/surajit003/siphyy>. Upload a Trakzee export (or use the bundled sample), watch the pipeline visualise step by step, see every LLM prompt.
+- **Local**:
+  ```bash
+  git clone https://github.com/surajit003/siphyy.git
+  cd siphyy
+  uv sync
+  uv run python examples/quickstart.py
+  ```
 
 ## Where to next
 

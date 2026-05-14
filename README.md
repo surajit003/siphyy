@@ -2,7 +2,8 @@
 
 > Open-source agentic framework for fleet telematics analytics — fuel anomaly detection, predictive maintenance, and driver behavior intelligence, with a provider-agnostic canonical schema and structured LLM reasoning.
 
-[![CI](https://github.com/siphyy/siphyy-core/actions/workflows/ci.yml/badge.svg)](https://github.com/siphyy/siphyy-core/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/siphyy.svg)](https://pypi.org/project/siphyy/)
+[![CI](https://github.com/surajit003/siphyy/actions/workflows/ci.yml/badge.svg)](https://github.com/surajit003/siphyy/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
 [![Live demo on HuggingFace](https://img.shields.io/badge/🤗_demo-Spaces-yellow.svg)](https://huggingface.co/spaces/surajit003/siphyy)
@@ -32,26 +33,7 @@ The output is structured, auditable, and ready to be wired into fleet management
    [Structured Output]      ←  FuelAnomalyReport, MaintenanceRiskReport, ...
 ```
 
-## Quickstart
-
-The fastest way to see the framework in action:
-
-```bash
-git clone https://github.com/siphyy/siphyy-core.git
-cd siphyy-core
-uv sync                              # installs everything incl. dev tools
-uv run python examples/quickstart.py
-```
-
-The quickstart loads `examples/data/sample_trakzee.json` (17 anonymised, synthetic rows), runs the full pipeline, and prints structured fuel-anomaly reports. It auto-detects which LLM provider to use:
-
-- `OPENAI_API_KEY` in env → uses `OpenAILLMClient` (real call against `gpt-4o-mini`)
-- `ANTHROPIC_API_KEY` in env → uses `AnthropicLLMClient` (real call against `claude-haiku-4-5`)
-- Neither → uses `MockLLMClient` with realistic canned verdicts, so the demo works with **zero setup**
-
-Drop a `.env` at the repo root with your key(s) and the quickstart picks them up automatically (`python-dotenv` is in the dev extras).
-
-### Install just the library
+## Install
 
 ```bash
 pip install "siphyy[trakzee,llm]"
@@ -59,49 +41,108 @@ pip install "siphyy[trakzee,llm]"
 uv pip install "siphyy[trakzee,llm]"
 ```
 
-The minimal in-code version of what the quickstart runs:
+Optional-dependency groups: `trakzee` (pandas + openpyxl for xlsx parsing), `llm` (openai + anthropic clients), `demo` (Streamlit visualiser), `storage` (pgvector — planned).
+
+## How it works
+
+### 1. Adapter — provider data → canonical events
+
+Adapters translate provider-specific shapes into the canonical schema. Units (km, km/h, °C, UTC) and field names are normalised at the boundary so nothing downstream cares what wire format the data arrived in.
 
 ```python
 from siphyy.adapters import TrakzeeAdapter
-from siphyy.agents import FuelAnomalyAgent, OpenAILLMClient
+
+adapter = TrakzeeAdapter()
+for event in adapter.adapt(trakzee_rows):
+    print(
+        event.vehicle_id,            # "trakzee:353201358420054"
+        event.timestamp,             # always UTC
+        event.engine_state,          # "running" / "idle" / "stopped"
+        event.fuel_level_raw,        # promoted from BLE provider_extras
+        event.fuel_sensor_type,      # "ble"
+    )
+```
+
+Other providers ship as separate adapter classes sharing the same `name`: `SamsaraStatsAdapter` for polled telemetry and `SamsaraWebhookAdapter` for push-based alerts.
+
+### 2. Tier 1 — canonical events → `InterestingEvent`s
+
+Detectors are deterministic, cheap, and stateful per-vehicle. They surface candidates worth a closer look; precision is Tier 2's job.
+
+```python
 from siphyy.detectors import FuelSiphonageDetector
+
+detector = FuelSiphonageDetector()
+
+for event in adapter.adapt(trakzee_rows):
+    if interesting := detector.process(event):
+        print(interesting.severity, interesting.summary)
+        # "critical Fuel sensor reading dropped 47% over 18 min while
+        #  engine_state was stopped with ignition off."
+```
+
+### 3. Tier 2 — `InterestingEvent` → `FuelAnomalyReport`
+
+The agent grounds an LLM call in retrieved historical cases (real siphonage patterns *and* known false-positive patterns like thermal contraction and slope settling) and produces a structured report.
+
+```python
+from siphyy.agents import FuelAnomalyAgent, OpenAILLMClient
 from siphyy.knowledge import SEED_CASES
 from siphyy.schema import CaseBase
 
-# 1. Translate raw provider rows into canonical TelemetryReading events.
-adapter = TrakzeeAdapter()
-
-# 2. Tier 1: cheap, deterministic rules surface candidates.
-detector = FuelSiphonageDetector()
-
-# 3. Tier 2: an LLM-grounded agent interprets each candidate against
-#    historical cases. The LLMClient is pluggable — swap OpenAILLMClient
-#    for an Anthropic / Gemini / Ollama implementation without touching
-#    agent code (see "Bring your own LLM" below).
 agent = FuelAnomalyAgent(
-    llm_client=OpenAILLMClient(),  # reads OPENAI_API_KEY from env
+    llm_client=OpenAILLMClient(),       # reads OPENAI_API_KEY from env
     case_base=CaseBase(SEED_CASES),
 )
 
 for event in adapter.adapt(trakzee_rows):
     if (interesting := detector.process(event)) and (report := agent.process(interesting)):
-        print(report.assessment, report.confidence, report.summary)
+        print(report.assessment, f"({report.confidence:.0%})")
+        print(report.summary)
+        print(report.reasoning)
+        # assessment ∈ {"likely_siphonage", "likely_false_positive", "uncertain"}
 ```
 
 ### Bring your own LLM
 
-`LLMClient` is a `Protocol` with a single method. To use a different provider, implement it in ~20 lines:
+`LLMClient` is a `Protocol` with two methods (`complete`, `embed`). Swap providers without touching agent code:
 
 ```python
 from pydantic import BaseModel
 from siphyy.agents import LLMClient
 
-class MyAnthropicClient:  # satisfies LLMClient structurally
+class MyClient:  # satisfies LLMClient structurally — no inheritance
     def complete[T: BaseModel](self, *, system, user, response_model: type[T]) -> T:
-        ...  # call Anthropic's tool-use endpoint, return response_model(**parsed)
+        ...  # any provider's structured-output endpoint
+
+    def embed(self, text: str) -> list[float]:
+        ...  # any provider's embeddings endpoint
 ```
 
-The agent itself doesn't import `anthropic` or `openai` — only the client implementation does, so optional extras stay optional.
+`OpenAILLMClient` and `AnthropicLLMClient` ship in the box. The agent never imports `openai` or `anthropic`.
+
+## Try it in 5 minutes
+
+Either path works — pick whichever fits.
+
+**Hosted demo** — <https://huggingface.co/spaces/surajit003/siphyy>. Upload a Trakzee export (or use the bundled sample), watch the pipeline run step by step, see every prompt the LLM receives.
+
+**Local quickstart**:
+
+```bash
+git clone https://github.com/surajit003/siphyy.git
+cd siphyy
+uv sync
+uv run python examples/quickstart.py
+```
+
+The quickstart loads `apps/demo/data/sample_trakzee.json` (17 synthetic rows with a planted siphonage scenario), runs the full pipeline, prints two structured reports. Auto-detects which LLM provider to use:
+
+- `OPENAI_API_KEY` in env → real OpenAI call (defaults to `gpt-4o-mini`)
+- `ANTHROPIC_API_KEY` in env → real Anthropic call (defaults to `claude-haiku-4-5`)
+- Neither → `MockLLMClient` with realistic canned verdicts, **zero setup needed**
+
+Drop a `.env` at the repo root with your keys and the quickstart picks them up.
 
 ## Why open source
 

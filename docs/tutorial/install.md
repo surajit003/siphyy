@@ -35,13 +35,15 @@ Available extras:
 
 ## Install from PyPI
 
-Once a release is cut:
-
 ```bash
 pip install "siphyy[trakzee,llm]"
 # or
 uv pip install "siphyy[trakzee,llm]"
 ```
+
+Bare `pip install siphyy` works too and gives you the core schema + detectors. The extras pull in optional pieces: `trakzee` adds pandas/openpyxl for xlsx parsing, `llm` adds the OpenAI and Anthropic client implementations, `demo` adds Streamlit for the visualiser app, `storage` is reserved for the pgvector backend.
+
+Pin tightly while the project is in 0.x — minor bumps can break adapters and detectors. The version this site documents is shown in the PyPI badge on the [landing page](../index.md).
 
 ## Verify
 
