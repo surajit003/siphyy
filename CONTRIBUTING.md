@@ -78,7 +78,11 @@ This CLA exists so the project can adapt its license in the future if needed (e.
 
 ## Code of Conduct
 
-Be kind. Disagree about ideas, never about people. Anything else gets you removed.
+Be kind. Disagree about ideas, never about people. Anything else gets you removed. Full text in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
+## Releasing (maintainers)
+
+Releases are cut by pushing a `v*` tag — the GitHub Actions workflow builds, publishes to PyPI via OIDC trusted publishing, and creates the GitHub Release. The full maintainer playbook (including versioning rules during alpha, the one-time PyPI trusted-publisher setup, and yanking) lives at [docs/about/releasing.md](docs/about/releasing.md).
 
 ## What to work on
 

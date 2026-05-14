@@ -1,0 +1,174 @@
+name: Release
+
+# Tag-triggered. Push a v* tag and this runs:
+#   1. validate  — pyproject.toml version must match the tag
+#   2. build     — uv build → dist/*.whl + dist/*.tar.gz
+#   3. publish   — upload to PyPI via OIDC trusted publishing (no token)
+#   4. release   — create the GitHub Release with the changelog excerpt
+#
+# Manual workflow_dispatch is also allowed for retrying a failed run on
+# the same tag (PyPI rejects duplicate uploads, which is what we want).
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+# Never run two releases at once. If a second tag lands while the first
+# is still publishing, the second waits — duplicate PyPI uploads would
+# fail anyway, and we want a clean "did the release succeed?" signal.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+# Restrict default permissions; jobs that need more opt in explicitly.
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate tag matches pyproject.toml
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: parse
+        name: Parse tag and check version
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            tag="${GITHUB_REF#refs/tags/}"
+          else
+            # workflow_dispatch: only proceed if HEAD is tagged
+            tag=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "")
+            if [ -z "$tag" ]; then
+              echo "::error::workflow_dispatch run, but HEAD isn't tagged. Tag the release commit first."
+              exit 1
+            fi
+          fi
+          version="${tag#v}"
+
+          echo "Tag:                $tag"
+          echo "Version (from tag): $version"
+
+          pyproject_version=$(grep -E '^version\s*=' pyproject.toml | head -1 | sed -E 's/.*"(.+)".*/\1/')
+          echo "pyproject.toml:     $pyproject_version"
+
+          if [ "$pyproject_version" != "$version" ]; then
+            echo "::error::Tag '$tag' (version '$version') doesn't match pyproject.toml version '$pyproject_version'."
+            echo "::error::Bump pyproject.toml to match, retag, then push again."
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build wheel + sdist
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Build artifacts
+        run: uv build
+
+      - name: Twine check (validates metadata, long_description, etc.)
+        run: pipx run twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  publish-pypi:
+    name: Publish to PyPI (trusted publishing)
+    needs: build
+    runs-on: ubuntu-latest
+
+    # GitHub Environment linked to PyPI's trusted publisher.
+    # Add `Required reviewers` in repo Settings → Environments → pypi
+    # to get a deliberate "are we sure?" approval gate.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/siphyy
+
+    permissions:
+      # Required for OIDC token issuance to PyPI.
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish via trusted publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No api_token / password input. PyPI accepts the OIDC token
+        # bound to (repo: ${{ github.repository }}, workflow: release.yml,
+        # environment: pypi). Configure once on PyPI's publishers page;
+        # the token is short-lived and re-issued every run.
+
+  github-release:
+    name: Create GitHub Release
+    needs: [validate, publish-pypi]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # to create the release + upload assets
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - id: changelog
+        name: Extract changelog section for this version
+        run: |
+          set -euo pipefail
+          version="${{ needs.validate.outputs.version }}"
+
+          # Grab the "## [VERSION] ..." block up to the next "## [" heading.
+          section=$(awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { capture=1; next }
+            capture && $0 ~ "^## \\[" { exit }
+            capture { print }
+          ' CHANGELOG.md)
+
+          if [ -z "$section" ]; then
+            echo "::warning::No CHANGELOG.md section for $version — release body will link to the changelog instead."
+            section="See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for changes."
+          fi
+
+          {
+            echo "body<<RELEASE_BODY_EOF"
+            echo "$section"
+            echo "RELEASE_BODY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.body }}
+          files: dist/*
+          # While the project is in 0.x alpha, every release is marked as
+          # prerelease so `pip install siphyy` doesn't pick it up by
+          # default (users have to opt in with --pre or a pin). Flip this
+          # to a smarter check (starts with v1 AND no rc/a/b suffix) when
+          # 1.0 approaches.
+          prerelease: true

@@ -115,6 +115,7 @@ nav:
   - About:
       - Changelog: about/changelog.md
       - Contributing: about/contributing.md
+      - Releasing: about/releasing.md
       - License: about/license.md
 
 extra:
