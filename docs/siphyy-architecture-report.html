@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Siphyy Core Architecture Report</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      color: #1f2937;
+      line-height: 1.45;
+      margin: 2.2rem;
+      font-size: 12px;
+    }
+    h1, h2, h3, h4 {
+      color: #0f172a;
+      margin-top: 1.4rem;
+      margin-bottom: 0.5rem;
+      page-break-after: avoid;
+    }
+    h1 {
+      font-size: 26px;
+      border-bottom: 2px solid #cbd5e1;
+      padding-bottom: 0.4rem;
+    }
+    h2 {
+      font-size: 18px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 0.2rem;
+    }
+    h3 {
+      font-size: 14px;
+    }
+    p, li {
+      orphans: 3;
+      widows: 3;
+    }
+    code {
+      font-family: SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      background: #f8fafc;
+      padding: 0.1rem 0.25rem;
+      border-radius: 3px;
+    }
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 0.9rem;
+      border-radius: 6px;
+      overflow: auto;
+      white-space: pre-wrap;
+      page-break-inside: avoid;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.8rem 0 1rem 0;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 0.45rem 0.55rem;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: #eff6ff;
+    }
+    .muted {
+      color: #475569;
+    }
+    .small {
+      font-size: 11px;
+    }
+    .mono {
+      font-family: SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    .callout {
+      border-left: 4px solid #2563eb;
+      background: #eff6ff;
+      padding: 0.8rem 1rem;
+      margin: 1rem 0;
+    }
+    .warning {
+      border-left-color: #b45309;
+      background: #fffbeb;
+    }
+    .ok {
+      border-left-color: #15803d;
+      background: #f0fdf4;
+    }
+    ul, ol {
+      margin-top: 0.3rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Siphyy Core Architecture Report</h1>
+  <p class="muted">
+    Generated from the local repository state on 2026-05-14.<br>
+    Intended as a shareable technical briefing for another model or engineer reviewing the project.
+  </p>
+
+  <h2>1. Executive Summary</h2>
+  <p>
+    <strong>Siphyy</strong> is an open-source Python framework for fleet telematics analytics, centered on
+    a two-tier pipeline:
+  </p>
+  <ol>
+    <li><strong>Tier 1 deterministic detection</strong>: provider telemetry is normalized into canonical events and
+    passed through cheap, stateful rules that surface only suspicious candidates.</li>
+    <li><strong>Tier 2 LLM interpretation</strong>: suspicious candidates are enriched with historical incident cases
+    and sent to a pluggable LLM client that returns a structured report.</li>
+  </ol>
+  <p>
+    The current implementation is focused on one end-to-end use case:
+    <strong>fuel anomaly / siphonage detection</strong>. The repo now contains a working reference adapter
+    (<code>TrakzeeAdapter</code>), a working Tier 1 detector (<code>FuelSiphonageDetector</code>), a working Tier 2
+    agent (<code>FuelAnomalyAgent</code>), pluggable OpenAI and Anthropic clients, test coverage, and a hosted
+    Streamlit demo that visualizes the pipeline and shows the exact LLM prompts used.
+  </p>
+
+  <div class="callout ok">
+    The project is no longer just a schema scaffold. It now demonstrates the complete path from
+    uploaded telematics rows to a structured, auditable anomaly report.
+  </div>
+
+  <h2>2. High-Level Product Purpose</h2>
+  <p>
+    Fleet telematics providers all expose different payloads, field names, units, and data quality. Siphyy
+    exists to provide a provider-agnostic analytics framework where:
+  </p>
+  <ul>
+    <li>adapters isolate provider-specific quirks at the ingestion boundary,</li>
+    <li>detectors operate only on canonical events,</li>
+    <li>agents reason only on canonical evidence plus curated cases, and</li>
+    <li>final outputs are structured and inspectable rather than opaque text.</li>
+  </ul>
+
+  <p>The current value proposition is strongest in three areas:</p>
+  <ul>
+    <li>fuel theft / siphonage detection,</li>
+    <li>false-positive suppression via Tier 2 case-grounded reasoning,</li>
+    <li>demoability and transparency of the LLM call path.</li>
+  </ul>
+
+  <h2>3. Repository Layout</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Path</th>
+        <th>Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>src/siphyy/schema/</code></td>
+        <td>Canonical event models, interesting-event models, case-base models.</td>
+      </tr>
+      <tr>
+        <td><code>src/siphyy/adapters/</code></td>
+        <td>Provider-specific translation into canonical events. Currently includes the Trakzee reference adapter.</td>
+      </tr>
+      <tr>
+        <td><code>src/siphyy/detectors/</code></td>
+        <td>Tier 1 deterministic detection layer and state-store abstraction.</td>
+      </tr>
+      <tr>
+        <td><code>src/siphyy/agents/</code></td>
+        <td>Tier 2 LLM agent layer plus provider-specific LLM client implementations.</td>
+      </tr>
+      <tr>
+        <td><code>src/siphyy/knowledge/</code></td>
+        <td>Seed incident cases used to ground the agent.</td>
+      </tr>
+      <tr>
+        <td><code>examples/</code></td>
+        <td>CLI-style quickstarts and small demos of the framework pipeline.</td>
+      </tr>
+      <tr>
+        <td><code>apps/demo/</code></td>
+        <td>Streamlit demo app for interactive uploads and step-by-step visualization.</td>
+      </tr>
+      <tr>
+        <td><code>tests/</code></td>
+        <td>Unit and integration tests for schemas, adapter, detector, agent, and LLM clients.</td>
+      </tr>
+      <tr>
+        <td><code>.github/workflows/</code></td>
+        <td>CI workflow and HuggingFace Spaces deployment workflow for the demo.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4. End-to-End Runtime Flow</h2>
+  <pre>[Provider rows / export]
+        ↓
+TrakzeeAdapter.adapt()
+        ↓
+Canonical TelemetryReading events
+        ↓
+FuelSiphonageDetector.process(event)
+        ↓
+InterestingEvent(category="fuel_drop")
+        ↓
+FuelAnomalyAgent.process(interesting_event)
+        ↓
+LLMClient.complete(system, user, response_model)
+        ↓
+Validated FuelAnomalyReport</pre>
+
+  <h3>4.1 Data Path Summary</h3>
+  <ol>
+    <li>Raw telematics rows are read from JSON/XLSX or an upstream fetch.</li>
+    <li>The adapter translates each row into a canonical <code>TelemetryReading</code>.</li>
+    <li>The detector keeps per-vehicle rolling state and fires when a drop pattern matches its rule.</li>
+    <li>The detector emits a compact <code>InterestingEvent</code> with evidence attached.</li>
+    <li>The agent retrieves a bounded set of historical cases.</li>
+    <li>The agent builds a prompt with the detector summary, evidence, and retrieved cases.</li>
+    <li>A pluggable LLM client is asked to fill a Pydantic schema.</li>
+    <li>The agent returns a frozen <code>FuelAnomalyReport</code>.</li>
+  </ol>
+
+  <h2>5. Canonical Schema Layer</h2>
+  <p>
+    The canonical schema is the core contract of the framework. It ensures everything after the adapter
+    layer reasons over normalized types instead of provider-specific shapes.
+  </p>
+
+  <h3>5.1 BaseEvent</h3>
+  <p><code>BaseEvent</code> carries common metadata:</p>
+  <ul>
+    <li><code>schema_version</code></li>
+    <li><code>vehicle_id</code></li>
+    <li><code>timestamp</code> in UTC</li>
+    <li><code>provider</code></li>
+    <li><code>provider_event_id</code></li>
+    <li><code>provider_extras</code> for traceability</li>
+  </ul>
+
+  <h3>5.2 TelemetryReading</h3>
+  <p>
+    <code>TelemetryReading</code> is the dominant canonical event type for polling-style providers such as Trakzee.
+    It contains:
+  </p>
+  <ul>
+    <li>position: latitude, longitude, altitude,</li>
+    <li>motion: speed, heading, odometer,</li>
+    <li>electrical state: external voltage, battery percentage,</li>
+    <li>vehicle state: ignition and engine state,</li>
+    <li>fuel fields: <code>fuel_level_percent</code>, <code>fuel_level_liters</code>, <code>fuel_level_raw</code>,
+      <code>fuel_sensor_type</code>, <code>tank_capacity_liters</code>,</li>
+    <li>environment: <code>ambient_temperature_c</code>,</li>
+    <li>orientation: <code>pitch_deg</code>, <code>roll_deg</code>,</li>
+    <li>human-readable context: <code>location_text</code>, <code>poi_text</code>.</li>
+  </ul>
+
+  <p>
+    The most important architectural improvement in the current codebase is that fuel sensing is now
+    promoted into first-class canonical fields. Earlier designs left BLE fuel data buried in
+    <code>provider_extras</code>, which made provider-agnostic detection impossible. The current schema resolves that.
+  </p>
+
+  <h3>5.3 DriverEvent</h3>
+  <p>
+    <code>DriverEvent</code> is the canonical discrete-event model for harsh braking, acceleration, turning, speeding,
+    and ignition/idling transitions. It is structurally ready for future detectors even though the current
+    feature path focuses on fuel anomalies.
+  </p>
+
+  <h3>5.4 InterestingEvent</h3>
+  <p>
+    <code>InterestingEvent</code> is the handoff contract between Tier 1 and Tier 2. Its design is intentionally small:
+  </p>
+  <ul>
+    <li><code>detector_name</code></li>
+    <li><code>vehicle_id</code></li>
+    <li><code>timestamp</code></li>
+    <li><code>category</code> (currently <code>fuel_drop</code>)</li>
+    <li><code>severity</code></li>
+    <li><code>summary</code></li>
+    <li><code>confidence</code></li>
+    <li><code>evidence</code> as detector-specific free-form detail</li>
+    <li><code>triggering_event_id</code></li>
+  </ul>
+  <p>
+    This is a good separation point. The detector does not try to become an incident report;
+    it only emits enough structured evidence for the agent to reason on.
+  </p>
+
+  <h3>5.5 CaseBase and IncidentCase</h3>
+  <p>
+    <code>IncidentCase</code> stores historical cases with symptoms, diagnosis, resolution, lessons, tags, region,
+    and confidence. <code>CaseBase</code> is currently an in-memory store with simple category/region filtering and
+    a placeholder embedding store. It is explicitly shaped so a future vector backend can preserve the same
+    interface.
+  </p>
+
+  <h2>6. Adapter Layer</h2>
+  <h3>6.1 Adapter Contract</h3>
+  <p>
+    Every telematics provider should be normalized behind the abstract <code>TelematicsAdapter</code> contract.
+    The contract is intentionally narrow: one <code>adapt(raw)</code> method that yields canonical events.
+  </p>
+
+  <h3>6.2 TrakzeeAdapter</h3>
+  <p>
+    <code>TrakzeeAdapter</code> is the reference implementation and currently the main production-grade adapter in the repo.
+    It performs:
+  </p>
+  <ul>
+    <li>IMEI-to-canonical vehicle mapping,</li>
+    <li>local-time to UTC conversion,</li>
+    <li>status normalization into <code>running / idle / stopped</code>,</li>
+    <li>safe numeric coercion with null handling,</li>
+    <li>meters-to-kilometers odometer conversion,</li>
+    <li>BLE fuel JSON parsing from the Trakzee <code>Fuel</code> column,</li>
+    <li>promotion of the first BLE fuel reading into <code>fuel_level_raw</code>,</li>
+    <li>preservation of auxiliary channels and provider metadata in <code>provider_extras</code>.</li>
+  </ul>
+
+  <p>
+    Important nuance: Trakzee BLE fuel readings are treated as <strong>raw counts</strong>, not calibrated liters
+    or percentages. The adapter intentionally refuses to fabricate calibrated values without per-vehicle calibration.
+    That is the correct architectural decision.
+  </p>
+
+  <div class="callout">
+    The adapter is also structured to support future promotion of pitch/roll when those columns are enabled in
+    the underlying Teltonika/Trakzee data profile. That is a good forward-compatible hook for reducing slope-related
+    false positives.
+  </div>
+
+  <h3>6.3 Adapter Design Strengths</h3>
+  <ul>
+    <li>Provider-specific quirks are isolated to one file.</li>
+    <li>Missing values are normalized safely.</li>
+    <li>Fuel data is promoted to canonical fields but raw details are still retained.</li>
+    <li>The adapter avoids downstream assumptions about calibration.</li>
+  </ul>
+
+  <h3>6.4 Adapter Limitations</h3>
+  <ul>
+    <li>Defaulting source timezone to Lusaka is convenient for the sample but dangerous if reused silently in other fleets.</li>
+    <li><code>provider_event_id</code> is synthesized as <code>imei:timestamp_seconds</code>, which can collide if multiple rows land in the same second.</li>
+    <li>Multi-sensor trucks are flattened to the first BLE fuel channel for canonical use, which is pragmatic but lossy.</li>
+  </ul>
+
+  <h2>7. Tier 1 Detection Layer</h2>
+  <h3>7.1 Detector Abstractions</h3>
+  <p>
+    <code>Detector</code> is the base class for all Tier 1 rule-based logic. It depends on a <code>StateStore</code>
+    protocol so detector state is decoupled from the storage backend. The default <code>InMemoryStateStore</code> is
+    fine for tests and single-process demos, while a Redis-backed store can be added later without changing detector logic.
+  </p>
+
+  <h3>7.2 FuelSiphonageDetector Logic</h3>
+  <p>
+    The current detector implements a simple, explicit rule:
+  </p>
+  <ol>
+    <li>ignore non-telemetry events,</li>
+    <li>ignore events without <code>fuel_level_raw</code>,</li>
+    <li>cache per-vehicle baseline state,</li>
+    <li>only evaluate when ignition is off and engine state is <code>stopped</code> or <code>idle</code>,</li>
+    <li>compare current raw reading to the prior raw reading,</li>
+    <li>ignore increases or negative elapsed time,</li>
+    <li>ignore windows longer than <code>max_minutes</code>,</li>
+    <li>fire if relative drop exceeds <code>threshold_pct</code>.</li>
+  </ol>
+
+  <p>The emitted evidence includes:</p>
+  <ul>
+    <li>drop percentage,</li>
+    <li>prior and current raw values,</li>
+    <li>elapsed minutes,</li>
+    <li>engine and ignition state,</li>
+    <li>fuel sensor type,</li>
+    <li>optional altitude and orientation context.</li>
+  </ul>
+
+  <h3>7.3 Why the Detector Uses Raw Fuel</h3>
+  <p>
+    This is a strong design choice for real-world telematics. Many fleets do not have well-calibrated
+    liters or percentages, especially when they retrofit BLE fuel probes. Using relative drop in raw
+    counts allows the detector to function with lower-quality upstream data while still surfacing
+    plausible siphonage candidates.
+  </p>
+
+  <h3>7.4 Detector Precision vs Recall Philosophy</h3>
+  <p>
+    The detector is intentionally recall-oriented. It does not try to fully rule out thermal contraction,
+    slope settling, or other edge cases inside Tier 1. Instead, it sends compact evidence to Tier 2, where
+    the agent can compare against historical cases. This separation of responsibilities is coherent.
+  </p>
+
+  <h3>7.5 Detector Strengths</h3>
+  <ul>
+    <li>Small and understandable.</li>
+    <li>State is explicit and backend-agnostic.</li>
+    <li>Supports uncalibrated sensors.</li>
+    <li>Adds altitude/pitch/roll context for future false-positive reasoning.</li>
+  </ul>
+
+  <h3>7.6 Detector Current Limits</h3>
+  <ul>
+    <li>No route awareness or depot awareness.</li>
+    <li>No fuel-station / refuel reconciliation.</li>
+    <li>No per-vehicle baseline learning.</li>
+    <li>No long-horizon aggregation for repeated small daytime siphonage.</li>
+    <li>No direct handling of thermal contraction in Tier 1.</li>
+    <li>No state expiration policy beyond time-window logic in the detector itself.</li>
+  </ul>
+
+  <h2>8. Tier 2 Agent Layer</h2>
+  <h3>8.1 LLMClient Protocol</h3>
+  <p>
+    The <code>LLMClient</code> protocol is the primary abstraction that keeps agent logic independent of model vendors.
+    A client only needs one method:
+  </p>
+  <pre>complete(system: str, user: str, response_model: type[T]) -&gt; T</pre>
+  <p>
+    That is a strong architectural boundary. Agent code does not need to know whether the provider is OpenAI,
+    Anthropic, Gemini, Ollama, vLLM, or something else.
+  </p>
+
+  <h3>8.2 FuelAnomalyAgent</h3>
+  <p>
+    <code>FuelAnomalyAgent</code> is the concrete Tier 2 implementation for <code>fuel_drop</code> events.
+    It works as follows:
+  </p>
+  <ol>
+    <li>decline any interesting event whose category is not <code>fuel_drop</code>,</li>
+    <li>retrieve up to <code>max_cases</code> from the case base,</li>
+    <li>build a user prompt that includes the detector summary, evidence, and formatted cases,</li>
+    <li>send system + user prompt to the configured <code>LLMClient</code>,</li>
+    <li>parse the LLM result into an internal verdict schema,</li>
+    <li>denormalize the verdict into a frozen <code>FuelAnomalyReport</code>.</li>
+  </ol>
+
+  <h3>8.3 Prompting Strategy</h3>
+  <p>
+    The system prompt is focused and conservative: it instructs the model to classify into one of
+    <code>likely_siphonage</code>, <code>likely_false_positive</code>, or <code>uncertain</code>; cite case IDs;
+    and prefer uncertainty over overconfident mistakes.
+  </p>
+  <p>
+    The user prompt contains:
+  </p>
+  <ul>
+    <li>detector metadata,</li>
+    <li>vehicle ID and timestamp,</li>
+    <li>detector severity/confidence,</li>
+    <li>free-form evidence key/values,</li>
+    <li>the retrieved case descriptions including symptoms, diagnosis, resolution, and lessons.</li>
+  </ul>
+
+  <h3>8.4 FuelAnomalyReport</h3>
+  <p>
+    The report is intentionally denormalized and frozen. It stores:
+  </p>
+  <ul>
+    <li>traceability fields to the detector event,</li>
+    <li>assessment and confidence,</li>
+    <li>summary and reasoning,</li>
+    <li>recommended actions,</li>
+    <li>referenced case IDs.</li>
+  </ul>
+
+  <h3>8.5 Agent Strengths</h3>
+  <ul>
+    <li>Clear separation from provider SDKs.</li>
+    <li>Schema-constrained output rather than free text.</li>
+    <li>Reasoning is grounded on specific historical cases.</li>
+    <li>Supports a mock client for zero-key demos and deterministic tests.</li>
+  </ul>
+
+  <h3>8.6 Agent Current Limits</h3>
+  <ul>
+    <li>Case retrieval is currently simple category filtering, not real similarity search.</li>
+    <li>The agent does not yet consume OEM manuals or structured route/depot context.</li>
+    <li>No report persistence or workflow integration exists in the OSS repo yet.</li>
+  </ul>
+
+  <h2>9. LLM Provider Implementations</h2>
+  <h3>9.1 OpenAILLMClient</h3>
+  <p>
+    The OpenAI client uses structured outputs via the OpenAI SDK parse path. The agent asks for a concrete
+    Pydantic model and receives a validated instance back. That avoids JSON extraction hacks and is the cleanest
+    provider implementation in the repo.
+  </p>
+
+  <h3>9.2 AnthropicLLMClient</h3>
+  <p>
+    The Anthropic client uses forced tool-use rather than a native structured-output parse endpoint.
+    It generates the JSON schema from the requested Pydantic model, defines a tool with that schema,
+    forces the model to call it, and validates the returned tool payload.
+  </p>
+
+  <h3>9.3 MockLLMClient</h3>
+  <p>
+    The mock client is not just a test convenience; it is also a product-enablement tool. It makes the
+    quickstart and the Streamlit demo fully runnable without API keys and without external LLM spend.
+  </p>
+
+  <h2>10. Knowledge Layer</h2>
+  <p>
+    The seed knowledge pack is an important part of the current design. It includes both confirmed theft cases
+    and false-positive cases, which is exactly what a good Tier 2 reasoning layer needs.
+  </p>
+  <p>The cases cover patterns such as:</p>
+  <ul>
+    <li>large engine-off night-time siphonage,</li>
+    <li>off-book refueling,</li>
+    <li>thermal contraction false positives,</li>
+    <li>mechanical siphonage via return-line tampering,</li>
+    <li>small repeated daytime losses,</li>
+    <li>slope-effect false positives referenced by the newer orientation-aware code paths.</li>
+  </ul>
+  <p>
+    This layer is currently synthetic and in-memory, but it already shapes the language and output style
+    used by the agent.
+  </p>
+
+  <h2>11. Demo and UX Architecture</h2>
+  <p>
+    The repository already contains the kind of visual interface you described: a Streamlit app in
+    <code>apps/demo/app.py</code> that lets a user upload a small Trakzee-shaped sample file or use bundled sample data.
+  </p>
+
+  <h3>11.1 What the Demo Does</h3>
+  <ul>
+    <li>accepts <code>.json</code> and <code>.xlsx</code> inputs,</li>
+    <li>enforces a small file-size cap,</li>
+    <li>runs the adapter, detector, and agent pipeline,</li>
+    <li>shows the canonical event sample,</li>
+    <li>shows every Tier 1 firing and the detector evidence,</li>
+    <li>shows the exact system prompt and user prompt sent to the LLM,</li>
+    <li>shows final structured reports,</li>
+    <li>supports OpenAI, Anthropic, and mock mode.</li>
+  </ul>
+
+  <p>
+    This is directly aligned with the intuition-building webpage concept: the demo makes the “black box”
+    visible, especially the precise prompts and the case retrieval step.
+  </p>
+
+  <h3>11.2 Hosting Path</h3>
+  <p>
+    The demo is packaged for HuggingFace Spaces using Docker. The repo includes:
+  </p>
+  <ul>
+    <li>a Dockerfile,</li>
+    <li>a demo-specific requirements file,</li>
+    <li>a deploy workflow that syncs <code>apps/demo</code> to a HuggingFace Space on pushes to <code>main</code>.</li>
+  </ul>
+
+  <h3>11.3 Current UX Gaps</h3>
+  <ul>
+    <li>The demo is Streamlit-first rather than a custom product UI.</li>
+    <li>It is intentionally scoped to small sample files and one main provider shape.</li>
+    <li>It does not yet expose more advanced controls like threshold tuning, route context, or case-pack selection.</li>
+  </ul>
+
+  <h2>12. Testing Strategy</h2>
+  <p>
+    The current test suite is materially better than an early-stage scaffold. It covers:
+  </p>
+  <ul>
+    <li>schema validation and immutability,</li>
+    <li>Trakzee adapter transformation behavior,</li>
+    <li>fuel-field promotion into canonical schema,</li>
+    <li>interesting-event schema behavior,</li>
+    <li>detector rule behavior and per-vehicle state isolation,</li>
+    <li>orientation evidence propagation,</li>
+    <li>agent prompt construction and report generation,</li>
+    <li>mock LLM behavior,</li>
+    <li>OpenAI and Anthropic client call construction via stubs,</li>
+    <li>optional real-provider integration tests gated on API keys.</li>
+  </ul>
+
+  <h3>12.1 What Is Strong About the Tests</h3>
+  <ul>
+    <li>They test the shape of the pipeline, not just isolated functions.</li>
+    <li>They verify design-critical behavior, such as “no fabricated calibrated fuel values.”</li>
+    <li>They include real integration hooks without forcing paid API usage in CI.</li>
+  </ul>
+
+  <h3>12.2 What Is Still Missing</h3>
+  <ul>
+    <li>No persistence/storage backend tests because that backend is not implemented yet.</li>
+    <li>No real route-planning, station-registry, or weather-join tests because those systems do not exist yet in OSS.</li>
+    <li>No browser-level UI tests for the Streamlit demo.</li>
+  </ul>
+
+  <h2>13. Packaging, Tooling, and CI</h2>
+  <h3>13.1 Python and Packaging</h3>
+  <p>
+    The project targets Python 3.14 and is packaged with Hatchling. Optional extras exist for provider- or
+    environment-specific capabilities such as <code>trakzee</code>, <code>llm</code>, <code>demo</code>, and
+    now <code>docs</code>. Dev tooling is available both as a pip extra and as a uv dependency group.
+  </p>
+
+  <h3>13.2 CI Workflow</h3>
+  <p>The CI workflow currently runs:</p>
+  <ul>
+    <li>Ruff linting,</li>
+    <li>Ruff format checks,</li>
+    <li>Mypy type checking,</li>
+    <li>pytest on Python 3.14.</li>
+  </ul>
+
+  <h3>13.3 Demo Deployment Workflow</h3>
+  <p>
+    The repo also has a separate GitHub Actions workflow that auto-deploys the demo app to HuggingFace Spaces
+    by syncing the <code>apps/demo</code> directory into the target Space repo.
+  </p>
+
+  <h2>14. Current Strengths</h2>
+  <ul>
+    <li>The core architecture is now coherent end-to-end.</li>
+    <li>Canonical fuel fields are properly modeled.</li>
+    <li>The Tier 1/Tier 2 separation is technically defensible.</li>
+    <li>LLM provider abstraction is clean and extendable.</li>
+    <li>The demo app is unusually transparent and useful for visual intuition.</li>
+    <li>The mock LLM path lowers friction for product demos and testing.</li>
+    <li>The project is small enough to understand but already opinionated enough to be meaningful.</li>
+  </ul>
+
+  <h2>15. Current Weaknesses and Architectural Gaps</h2>
+  <div class="callout warning">
+    The repo is now functional, but it is still an alpha framework, not a complete fleet-intelligence platform.
+  </div>
+  <ul>
+    <li>No storage backend for reports, state, or case embeddings beyond in-memory development implementations.</li>
+    <li>No real similarity retrieval over the case base yet.</li>
+    <li>No route/depot/station/weather integrations, which are important for high-precision fleet reasoning.</li>
+    <li>No multi-detector or multi-agent orchestration yet.</li>
+    <li>No CLI entrypoint despite the broader framework ambition.</li>
+    <li>No authentication, tenancy, or production service API surface in the OSS repo.</li>
+    <li>Current provider support is still narrow.</li>
+    <li>Some logic is deliberately simple today and will need calibration per fleet.</li>
+  </ul>
+
+  <h2>16. Recommended Near-Term Evolution</h2>
+  <ol>
+    <li>Add vector-backed case retrieval while preserving the current <code>CaseBase</code> interface.</li>
+    <li>Add structured upstream context objects for route, depot, station registry, and weather joins.</li>
+    <li>Add a persistence layer for reports and detector state.</li>
+    <li>Expand provider adapters beyond Trakzee.</li>
+    <li>Generalize the Streamlit demo into a more product-like hosted sample-analysis page if desired.</li>
+    <li>Add a CLI and/or service API for non-demo operation.</li>
+    <li>Consider first-class support for multi-tank vehicles if the product focus deepens there.</li>
+  </ol>
+
+  <h2>17. Interpretation for Another Model or Engineer</h2>
+  <p>
+    If another model such as Claude is reviewing this codebase, the most important mental model is:
+  </p>
+  <ul>
+    <li><strong>canonical schema first</strong>,</li>
+    <li><strong>cheap detector second</strong>,</li>
+    <li><strong>case-grounded LLM interpretation third</strong>,</li>
+    <li><strong>demo transparency as a product feature, not an afterthought</strong>.</li>
+  </ul>
+  <p>
+    The code should not be interpreted as a generic “LLM wrapper for fleet data.” It is a deliberately staged
+    analytics system that tries to keep deterministic signal extraction and probabilistic interpretation separate.
+    That separation is the central architectural idea of the repo.
+  </p>
+
+  <h2>18. Final Assessment</h2>
+  <p>
+    Siphyy is currently a credible alpha framework for fuel anomaly analysis in fleet telematics. Its strongest
+    technical decisions are:
+  </p>
+  <ul>
+    <li>canonical event normalization,</li>
+    <li>stateful deterministic Tier 1 filtering,</li>
+    <li>schema-constrained Tier 2 outputs,</li>
+    <li>provider-agnostic LLM client abstraction,</li>
+    <li>and a transparent demo experience that shows the exact reasoning inputs.</li>
+  </ul>
+  <p>
+    Its biggest remaining gaps are not conceptual confusion but missing production subsystems: durable storage,
+    richer retrieval, more upstream business context, more adapters, and a more complete service surface.
+  </p>
+
+  <p class="small muted">
+    Source basis for this report: repository code in <code>src/siphyy/</code>, <code>apps/demo/</code>,
+    <code>examples/</code>, <code>tests/</code>, and GitHub workflow definitions present in the workspace on
+    2026-05-14.
+  </p>
+</body>
+</html>

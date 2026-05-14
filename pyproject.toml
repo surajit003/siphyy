@@ -41,6 +41,15 @@ storage = ["psycopg[binary]>=3.1", "sqlalchemy>=2.0"]
 # the visualiser locally or deploy it to HuggingFace Spaces.
 demo = ["streamlit>=1.30", "pandas>=2.2", "openpyxl>=3.1"]
 
+# Documentation site. Run `mkdocs serve` from the repo root to preview at
+# http://localhost:8000.
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.25",
+    "pymdown-extensions>=10.7",
+]
+
 # Development tooling for pip-based installs. Run: `uv pip install -e ".[dev]"`
 dev = [
     "pytest>=8.0",

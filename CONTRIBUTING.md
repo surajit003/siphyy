@@ -37,6 +37,25 @@ pytest --no-cov                 # skip coverage (faster iteration)
 - Test every adapter against at least one realistic provider payload fixture.
 - Prefer explicit over clever. This is infrastructure code people will read.
 
+## Documentation
+
+The full docs site lives under `docs/` and is built with [MkDocs + Material](https://squidfunk.github.io/mkdocs-material/). Preview locally:
+
+```bash
+uv pip install -e ".[docs]"
+mkdocs serve                    # http://localhost:8000
+```
+
+The site auto-reloads on save. `mkdocs build --strict` is what CI runs — same command, fails on broken links or missing pages.
+
+When you add a new module under `src/siphyy/`, the API reference picks it up automatically via `mkdocstrings` if you add a one-liner to `docs/reference/<area>.md`:
+
+```markdown
+::: siphyy.your_new_module
+```
+
+Conceptual docs (the *why*) live under `docs/concepts/`; recipe-style answers (the *how*) under `docs/how-to/`; the progressive learning path under `docs/tutorial/`. The README's quickstart links into the tutorial; keep the two in sync if you change either.
+
 ## Writing an adapter for a new telematics provider
 
 1. Create `src/siphyy/adapters/yourprovider.py`.
