@@ -5,7 +5,7 @@ Run::
     uv run python examples/quickstart.py
 
 What it does:
-  1. Loads ``examples/data/sample_trakzee.json`` (anonymised synthetic data,
+  1. Loads ``apps/demo/data/sample_trakzee.json`` (anonymised synthetic data,
      designed to exercise both a real-siphonage scenario and a known
      slope-effect false positive).
   2. Translates rows into canonical ``TelemetryReading``s with
@@ -50,7 +50,13 @@ from siphyy.detectors import FuelSiphonageDetector
 from siphyy.knowledge import SEED_CASES
 from siphyy.schema import CaseBase
 
-SAMPLE_PATH = Path(__file__).resolve().parent / "data" / "sample_trakzee.json"
+SAMPLE_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "apps"
+    / "demo"
+    / "data"
+    / "sample_trakzee.json"
+)
 
 
 def _pick_llm_client() -> tuple[LLMClient, str]:

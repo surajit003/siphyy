@@ -33,8 +33,7 @@ from siphyy.detectors import FuelSiphonageDetector
 from siphyy.knowledge import SEED_CASES
 from siphyy.schema import CaseBase, InterestingEvent
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-SAMPLE_DATA_PATH = REPO_ROOT / "examples" / "data" / "sample_trakzee.json"
+SAMPLE_DATA_PATH = Path(__file__).resolve().parent / "data" / "sample_trakzee.json"
 
 
 # ──────────────────────────────────────────────────────────────────────
