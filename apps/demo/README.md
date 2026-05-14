@@ -3,9 +3,8 @@ title: Siphyy Demo
 emoji: ⛽
 colorFrom: blue
 colorTo: indigo
-sdk: streamlit
-sdk_version: "1.30.0"
-app_file: app.py
+sdk: docker
+app_port: 7860
 pinned: false
 license: apache-2.0
 short_description: Provider-agnostic fleet telematics pipeline — schema → adapter → Tier 1 detector → Tier 2 LLM agent, visualised step by step.
@@ -40,19 +39,31 @@ The app opens at <http://localhost:8501>. Drop an `OPENAI_API_KEY` or `ANTHROPIC
 
 ## Deploying to HuggingFace Spaces
 
-The YAML frontmatter at the top of this README is the Space configuration HuggingFace reads — Spaces auto-detects `sdk: streamlit` and runs `app_file: app.py`. Two deployment paths:
+HF retired their managed Streamlit SDK; Spaces now hosts non-Gradio apps via Docker. The `Dockerfile` in this directory + the YAML frontmatter at the top of this README is the full deployment config.
 
-**Linked-repo (recommended)**
-1. Create a new Space on HuggingFace: <https://huggingface.co/new-space>, choose **Streamlit** as the SDK.
-2. Under "Files & versions" → "Add a remote git repo as a source", point at this GitHub repo and set the **subdirectory** to `apps/demo/`.
-3. The Space rebuilds automatically on every push to `main`.
+**Standalone Space (recommended for first deploy)**
 
-**Standalone Space**
-1. Create the Space and clone its git repo locally.
-2. Copy the contents of `apps/demo/` into the Space repo root.
-3. Push. The Space builds via `requirements.txt`, which pulls `siphyy` from this GitHub repo's `main`.
+1. Create a new Space at <https://huggingface.co/new-space>. Pick **Docker** as the SDK, **CPU basic** as the hardware, public visibility.
+2. Clone the empty Space repo locally:
+   ```bash
+   git clone https://huggingface.co/spaces/<your-username>/<space-name> hf-siphyy
+   ```
+3. Copy the contents of `apps/demo/` into the Space repo root:
+   ```bash
+   cp apps/demo/app.py apps/demo/requirements.txt apps/demo/Dockerfile apps/demo/README.md hf-siphyy/
+   ```
+4. Push to HF:
+   ```bash
+   cd hf-siphyy && git add . && git commit -m "initial deploy" && git push
+   ```
 
-For both paths, API keys are *not* needed at the Space level — the app uses a bring-your-own-key UX. If you want to offer a rate-limited demo key, add `OPENAI_API_KEY` (and/or `ANTHROPIC_API_KEY`) as a Space secret and extend `_build_llm_client` to fall through to it.
+First build takes ~3-5 minutes (the Dockerfile compiles deps fresh). HF then serves the app at `https://huggingface.co/spaces/<your-username>/<space-name>`.
+
+**Linked-repo (auto-deploy on `git push` to GitHub)**
+
+After your first standalone deploy, you can link a GitHub repo as a remote source under the Space's *Settings → Linked git repository*. Subsequent pushes to GitHub `main` redeploy automatically. The Space still uses the same Dockerfile / requirements.txt — only the source of truth changes.
+
+For both paths, API keys are *not* needed at the Space level — the app uses a bring-your-own-key UX. If you want to offer a rate-limited demo key, add `OPENAI_API_KEY` (and/or `ANTHROPIC_API_KEY`) as a Space secret under *Settings → Variables and secrets* and extend `_build_llm_client` to fall through to it.
 
 ## Privacy posture
 

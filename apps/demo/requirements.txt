@@ -1,6 +1,6 @@
-# Pinned-but-loose dependencies for the HuggingFace Spaces deployment.
+# Dependencies for the HuggingFace Spaces deployment.
 # Local development should use `uv pip install -e ".[demo,trakzee,llm]"`
-# from the repo root instead.
+# from the repo root instead — this file is for the Space container.
 streamlit>=1.30
 pandas>=2.2
 openpyxl>=3.1
@@ -8,6 +8,7 @@ pydantic>=2.6
 numpy>=1.26
 openai>=1.40
 anthropic>=0.34
-# Install siphyy itself from the repo root (Spaces clones the whole repo,
-# so a relative path works inside the Space build):
--e ../..
+python-dotenv>=1.0
+# Install siphyy from GitHub. Pin to a tag (e.g. @v0.1.0) once you cut
+# a release for reproducible Space builds; @main rebuilds on every push.
+siphyy @ git+https://github.com/surajit003/siphyy.git@main
