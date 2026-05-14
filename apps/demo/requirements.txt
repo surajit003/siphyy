@@ -1,0 +1,13 @@
+# Pinned-but-loose dependencies for the HuggingFace Spaces deployment.
+# Local development should use `uv pip install -e ".[demo,trakzee,llm]"`
+# from the repo root instead.
+streamlit>=1.30
+pandas>=2.2
+openpyxl>=3.1
+pydantic>=2.6
+numpy>=1.26
+openai>=1.40
+anthropic>=0.34
+# Install siphyy itself from the repo root (Spaces clones the whole repo,
+# so a relative path works inside the Space build):
+-e ../..

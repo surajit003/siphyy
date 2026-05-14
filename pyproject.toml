@@ -37,6 +37,10 @@ llm = ["anthropic>=0.34", "openai>=1.40"]
 # pgvector / production storage
 storage = ["psycopg[binary]>=3.1", "sqlalchemy>=2.0"]
 
+# Web demo (Streamlit app under apps/demo). Optional — only needed to run
+# the visualiser locally or deploy it to HuggingFace Spaces.
+demo = ["streamlit>=1.30", "pandas>=2.2", "openpyxl>=3.1"]
+
 # Development tooling for pip-based installs. Run: `uv pip install -e ".[dev]"`
 dev = [
     "pytest>=8.0",

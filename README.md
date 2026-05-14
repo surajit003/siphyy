@@ -5,6 +5,7 @@
 [![CI](https://github.com/siphyy/siphyy-core/actions/workflows/ci.yml/badge.svg)](https://github.com/siphyy/siphyy-core/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
+[![Live demo on HuggingFace](https://img.shields.io/badge/🤗_demo-Spaces-yellow.svg)](https://huggingface.co/spaces/surajit003/siphyy-demo)
 
 ## What it does
 
