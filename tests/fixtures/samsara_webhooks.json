@@ -1,0 +1,118 @@
+{
+  "_fixture_description": "Synthetic Samsara webhook payloads for the alert event types most relevant to fleet operations. Schema shape conforms to Samsara Webhooks 2.0 (Enriched) as documented at developers.samsara.com/docs/webhook-reference. Each payload is what Samsara would POST to your webhook endpoint when the corresponding alert fires.",
+
+  "harsh_braking_event": {
+    "eventId": "a9db46da-7519-4aca-92af-0cb533d5862e",
+    "eventTime": "2026-04-29T08:42:13Z",
+    "eventType": "HarshEvent",
+    "orgId": 4001046,
+    "webhookId": "507188247963909",
+    "data": {
+      "vehicle": {
+        "id": "281474977345001",
+        "name": "Lagos Truck 7",
+        "vin": "JTMBK32V895099731"
+      },
+      "driver": {
+        "id": "1654977",
+        "name": "Adewale Okonkwo"
+      },
+      "harshEventType": "HarshBraking",
+      "downloadForGoogleEarthUrl": "https://cloud.samsara.com/...",
+      "incidentReportUrl": "https://cloud.samsara.com/o/4001046/incidents/...",
+      "location": {
+        "latitude": 6.5612,
+        "longitude": 3.3702,
+        "formattedLocation": "Third Mainland Bridge, Lagos"
+      },
+      "speedAtTimeOfIncidentMilesPerHour": 38,
+      "details": "Harsh braking event at 38 mph"
+    }
+  },
+
+  "harsh_acceleration_event": {
+    "eventId": "b1cd54bf-8a45-4f12-91d8-6e2f8b7c4a23",
+    "eventTime": "2026-04-29T08:53:07Z",
+    "eventType": "HarshEvent",
+    "orgId": 4001046,
+    "webhookId": "507188247963909",
+    "data": {
+      "vehicle": {
+        "id": "281474977345001",
+        "name": "Lagos Truck 7",
+        "vin": "JTMBK32V895099731"
+      },
+      "driver": {
+        "id": "1654977",
+        "name": "Adewale Okonkwo"
+      },
+      "harshEventType": "HarshAcceleration",
+      "location": {
+        "latitude": 6.5648,
+        "longitude": 3.3691,
+        "formattedLocation": "Third Mainland Bridge, Lagos"
+      },
+      "speedAtTimeOfIncidentMilesPerHour": 42,
+      "details": "Harsh acceleration event"
+    }
+  },
+
+  "geofence_exit_alert": {
+    "eventId": "c3ef67d8-9b56-5023-a2e9-7f3a9c8d6b34",
+    "eventTime": "2026-04-29T18:14:52Z",
+    "eventType": "Alert",
+    "orgId": 4001046,
+    "webhookId": "507188247963909",
+    "data": {
+      "alertConditionDescription": "Vehicle is outside geofence",
+      "alertConditionId": "DeviceLocationOutsideGeofence",
+      "details": "'Lagos Truck 7' is outside Apapa Depot Geofence.",
+      "vehicle": {
+        "id": "281474977345001",
+        "name": "Lagos Truck 7",
+        "vin": "JTMBK32V895099731"
+      },
+      "location": {
+        "latitude": 6.5189,
+        "longitude": 3.3823,
+        "formattedLocation": "Wharf Road, Apapa, Lagos"
+      },
+      "geofence": {
+        "id": "1812547",
+        "name": "Apapa Depot"
+      },
+      "startedAt": "2026-04-29T18:14:30Z",
+      "resolved": false
+    }
+  },
+
+  "speeding_alert": {
+    "eventId": "d4ab78e9-0c67-6134-b3fa-8a4bad9e7c45",
+    "eventTime": "2026-04-29T13:32:18Z",
+    "eventType": "Alert",
+    "orgId": 4001046,
+    "webhookId": "507188247963909",
+    "data": {
+      "alertConditionDescription": "Vehicle speed above threshold",
+      "alertConditionId": "DeviceSpeedAbove",
+      "details": "'Lagos Truck 7' speed is above 50 mph. Currently 58 mph. Location: Ikorodu Road, Lagos.",
+      "vehicle": {
+        "id": "281474977345001",
+        "name": "Lagos Truck 7"
+      },
+      "driver": {
+        "id": "1654977",
+        "name": "Adewale Okonkwo"
+      },
+      "location": {
+        "latitude": 6.5722,
+        "longitude": 3.3551,
+        "formattedLocation": "Ikorodu Road, Lagos"
+      },
+      "speedMilesPerHour": 58,
+      "speedLimitMilesPerHour": 50,
+      "startedAt": "2026-04-29T13:32:00Z",
+      "resolved": false
+    }
+  }
+}

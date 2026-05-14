@@ -100,3 +100,17 @@ class MyProviderEventsAdapter(TelematicsAdapter):
 ```
 
 They share `name` because they're the same logical provider; they're separate classes because they consume different shapes of input.
+
+## Multiple shapes per provider
+
+Some providers ship genuinely different payload shapes for different feeds — Samsara is the canonical example, with a polled `stats/history` response (vehicle-grouped time-series) and push-based webhook payloads (individual event envelopes). Treat these as **separate adapter classes sharing one `name`**, not one mega-adapter with a switch statement:
+
+```python
+class SamsaraStatsAdapter(TelematicsAdapter):
+    name = "samsara"     # emits TelemetryReading
+
+class SamsaraWebhookAdapter(TelematicsAdapter):
+    name = "samsara"     # emits DriverEvent
+```
+
+Each class has one input shape, one output type, one `adapt()` method. Downstream code never has to care which one produced an event — both produce canonical events tagged `provider="samsara"`. The split keeps every adapter small, testable, and easy to reason about when the provider changes one of their shapes without touching the other.

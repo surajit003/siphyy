@@ -28,7 +28,7 @@ dependencies = [
 [project.optional-dependencies]
 # Adapters that bring their own transport/parsing deps.
 trakzee = ["pandas>=2.2", "openpyxl>=3.1"]
-samsara = ["httpx>=0.27"]
+samsara = []  # adapters are pure dict parsers; httpx joins when SamsaraClient lands
 
 # LLM and embeddings — kept optional so the framework runs without API keys
 # for Tier 1 detection only.
