@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: apache-2.0
-short_description: Provider-agnostic fleet telematics pipeline — schema → adapter → Tier 1 detector → Tier 2 LLM agent, visualised step by step.
+short_description: Fleet telematics pipeline visualised step by step
 ---
 
 # Siphyy — fleet telematics demo
