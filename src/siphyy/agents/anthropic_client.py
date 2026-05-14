@@ -91,3 +91,27 @@ class AnthropicLLMClient:
             f"Anthropic returned no tool_use block for {tool_name!r}. "
             f"Stop reason: {response.stop_reason!r}"
         )
+
+    def embed(self, text: str) -> list[float]:
+        """Anthropic doesn't ship a first-party embeddings API.
+
+        Their guidance is to use Voyage AI (via the ``voyageai`` SDK) for
+        embeddings. Until siphyy adds a VoyageEmbedClient (or until
+        Anthropic ships embeddings), agents using AnthropicLLMClient
+        should either:
+
+          1. Pass a separate ``OpenAILLMClient`` instance to ``CaseBase.index()``
+             for embeddings while keeping Anthropic for chat — the case base
+             accepts any object that implements ``embed()``.
+          2. Skip indexing and let ``CaseBase.retrieve()`` fall back to
+             category-only filtering (no semantic ranking, same behaviour
+             as pre-vector-retrieval).
+
+        Raising ``NotImplementedError`` here triggers the graceful fallback
+        in ``FuelAnomalyAgent`` automatically.
+        """
+        raise NotImplementedError(
+            "AnthropicLLMClient has no embeddings endpoint. Use a separate "
+            "OpenAILLMClient (or another LLMClient with embed support) for "
+            "indexing the case base, or accept category-only fallback."
+        )

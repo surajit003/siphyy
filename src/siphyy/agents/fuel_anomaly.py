@@ -11,6 +11,7 @@ and case prose. The same agent works against any adapter's output.
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Literal
@@ -110,7 +111,8 @@ class FuelAnomalyAgent(Agent[FuelAnomalyReport]):
         if event.category != "fuel_drop":
             return None
 
-        relevant_cases = self._retrieve_cases()
+        self._ensure_indexed()
+        relevant_cases = self._retrieve_cases(event)
         user_prompt = self._build_user_prompt(event, relevant_cases)
 
         verdict = self._llm.complete(
@@ -135,13 +137,35 @@ class FuelAnomalyAgent(Agent[FuelAnomalyReport]):
 
     # ---- internals -------------------------------------------------
 
-    def _retrieve_cases(self) -> list[IncidentCase]:
-        """Cases worth showing the LLM. Pulls fuel-theft and false-positive
-        precedents — true siphonage cases for pattern matching, false
-        positives so the LLM can rule them out explicitly.
+    def _ensure_indexed(self) -> None:
+        """Lazily compute case-base embeddings on first call. Idempotent.
 
-        Embedding-based similarity retrieval is a future upgrade; for now
-        we hand over a small bounded set."""
+        If the wired-up LLM client doesn't support embeddings (Anthropic's
+        client raises ``NotImplementedError``), we swallow the exception
+        and let :meth:`_retrieve_cases` fall through to the category-only
+        path. Same prompt shape, less semantic precision — the OSS
+        fallback is still useful, just not state-of-the-art.
+        """
+        if self._cases.is_indexed:
+            return
+        # Embedder may not be available (Anthropic). Swallow and let
+        # retrieve() fall through to the category-only path.
+        with contextlib.suppress(NotImplementedError):
+            self._cases.index(self._llm)
+
+    def _retrieve_cases(self, event: InterestingEvent) -> list[IncidentCase]:
+        """Cases worth showing the LLM.
+
+        When the case base is indexed, picks the top ``max_cases`` by
+        cosine similarity to the event's summary — relevance across the
+        whole case set, regardless of category.
+
+        When not indexed (embedder unavailable), preserves the original
+        behaviour: fuel_theft precedents plus false_positive cases the
+        LLM can use to rule out benign causes. Same prompt shape.
+        """
+        if self._cases.is_indexed:
+            return self._cases.retrieve(query=event.summary, k=self._max_cases)
         candidates = self._cases.filter(category="fuel_theft") + self._cases.filter(
             category="false_positive"
         )
