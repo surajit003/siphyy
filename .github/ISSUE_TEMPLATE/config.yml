@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and general discussion
+    url: https://github.com/surajit003/siphyy/discussions
+    about: For "how do I use siphyy for X?" or design-question threads, please
+      use GitHub Discussions instead of opening an issue.
+  - name: Security vulnerability — please report privately
+    url: https://github.com/surajit003/siphyy/security/policy
+    about: To privately report a security vulnerability, see SECURITY.md. Do
+      not open a public issue for security reports.
