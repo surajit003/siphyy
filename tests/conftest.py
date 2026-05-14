@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -18,6 +20,10 @@ except ImportError:
     pass
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _load_fixture(name: str) -> Any:
+    return json.loads((FIXTURES / name).read_text())
 
 
 @pytest.fixture
@@ -73,3 +79,17 @@ def trakzee_missing_data_row() -> dict:
         "AC": "--",
         "Altitude": "1280",
     }
+
+
+@pytest.fixture
+def samsara_stats_payload() -> dict:
+    """Full Samsara stats/history response (one vehicle, planted siphonage)."""
+    return _load_fixture("samsara_stats_history.json")
+
+
+@pytest.fixture
+def samsara_webhook_payloads() -> dict:
+    """Four sample Samsara webhook payloads keyed by scenario name:
+    ``harsh_braking_event``, ``harsh_acceleration_event``,
+    ``geofence_exit_alert``, ``speeding_alert``."""
+    return _load_fixture("samsara_webhooks.json")
