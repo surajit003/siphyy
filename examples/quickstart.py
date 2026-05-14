@@ -51,11 +51,7 @@ from siphyy.knowledge import SEED_CASES
 from siphyy.schema import CaseBase
 
 SAMPLE_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "apps"
-    / "demo"
-    / "data"
-    / "sample_trakzee.json"
+    Path(__file__).resolve().parent.parent / "apps" / "demo" / "data" / "sample_trakzee.json"
 )
 
 
