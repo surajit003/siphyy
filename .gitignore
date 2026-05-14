@@ -57,7 +57,8 @@ coverage.xml
 Thumbs.db
 
 # Project-specific
-# Don't commit real customer telematics data — only synthetic samples in tests/fixtures
+# Don't commit real customer telematics data — only synthetic samples
+# in tests/fixtures or examples/data.
 *.csv
 *.parquet
 data/
@@ -65,9 +66,16 @@ secrets/
 .env
 .env.local
 
-# Allow specific test fixtures
+# Lock down raw provider uploads at the repo root specifically.
+# Subdirectory xlsx (e.g. examples/data/sample_trakzee.xlsx) is fine.
+/trakzee_export.xlsx
+/*.xlsx
+
+# Allow synthetic sample data shipped with the library.
 !tests/fixtures/*.json
 !tests/fixtures/*.jsonl
+!examples/data/
+!examples/data/**
 
 # Logs
 *.log

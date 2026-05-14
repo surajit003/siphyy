@@ -32,13 +32,32 @@ The output is structured, auditable, and ready to be wired into fleet management
 
 ## Quickstart
 
-```bash
-# Install with the Trakzee adapter
-pip install "siphyy[trakzee,llm]"
+The fastest way to see the framework in action:
 
-# Or with uv
+```bash
+git clone https://github.com/siphyy/siphyy-core.git
+cd siphyy-core
+uv sync                              # installs everything incl. dev tools
+uv run python examples/quickstart.py
+```
+
+The quickstart loads `examples/data/sample_trakzee.json` (17 anonymised, synthetic rows), runs the full pipeline, and prints structured fuel-anomaly reports. It auto-detects which LLM provider to use:
+
+- `OPENAI_API_KEY` in env → uses `OpenAILLMClient` (real call against `gpt-4o-mini`)
+- `ANTHROPIC_API_KEY` in env → uses `AnthropicLLMClient` (real call against `claude-haiku-4-5`)
+- Neither → uses `MockLLMClient` with realistic canned verdicts, so the demo works with **zero setup**
+
+Drop a `.env` at the repo root with your key(s) and the quickstart picks them up automatically (`python-dotenv` is in the dev extras).
+
+### Install just the library
+
+```bash
+pip install "siphyy[trakzee,llm]"
+# or
 uv pip install "siphyy[trakzee,llm]"
 ```
+
+The minimal in-code version of what the quickstart runs:
 
 ```python
 from siphyy.adapters import TrakzeeAdapter

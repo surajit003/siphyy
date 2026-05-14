@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - pyproject.toml with full tool config (ruff, mypy, pytest, coverage)
 - GitHub Actions CI workflow
 - Pre-commit hooks
+- 5-minute quickstart at `examples/quickstart.py` with bundled anonymised
+  sample data (`examples/data/sample_trakzee.json` and `.xlsx`).
+  Auto-detects OpenAI / Anthropic from env; falls back to `MockLLMClient`
+  with realistic canned verdicts so the demo runs with zero setup.
 
 ### Planned
 - Anthropic / Gemini / Ollama `LLMClient` implementations
