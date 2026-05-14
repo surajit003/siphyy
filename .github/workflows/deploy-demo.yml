@@ -20,7 +20,7 @@ jobs:
     name: Sync apps/demo to HuggingFace Space
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Push apps/demo to HuggingFace Space repo
         env:
