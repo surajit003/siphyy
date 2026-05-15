@@ -10,8 +10,8 @@ import logging
 import sys
 import uuid
 from datetime import date, timedelta
-from mcp.server.fastmcp import FastMCP
 
+from mcp.server.fastmcp import FastMCP
 from mock_data import SERVICE_HISTORY, UPCOMING_SERVICES
 
 logging.basicConfig(
@@ -50,9 +50,7 @@ def get_maintenance_history(vehicle_id: str) -> list[dict]:
 
 
 @mcp.tool()
-def get_upcoming_services(
-    vehicle_id: str | None = None, days: int = 30
-) -> list[dict]:
+def get_upcoming_services(vehicle_id: str | None = None, days: int = 30) -> list[dict]:
     """
     Return services scheduled to occur within the next N days.
 
@@ -110,7 +108,10 @@ def schedule_service(
     """
     log.info(
         "tool=schedule_service vehicle_id=%r type=%r date=%r garage=%r",
-        vehicle_id, service_type, scheduled_date, garage,
+        vehicle_id,
+        service_type,
+        scheduled_date,
+        garage,
     )
     new_record = {
         "id": f"UPC-{uuid.uuid4().hex[:6].upper()}",

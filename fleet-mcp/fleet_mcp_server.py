@@ -9,10 +9,10 @@ Mock data for now — wire to real Postgres later.
 import json
 import logging
 import sys
-from datetime import datetime, timedelta, timezone
-from mcp.server.fastmcp import FastMCP
+from datetime import UTC, datetime, timedelta
 
-from mock_data import VEHICLES, INCIDENTS
+from mcp.server.fastmcp import FastMCP
+from mock_data import INCIDENTS, VEHICLES
 
 # MCP servers speak the protocol on stdout — anything printed there gets
 # parsed as a protocol message and will corrupt the session. ALL diagnostic
@@ -80,7 +80,7 @@ def get_recent_incidents(vehicle_id: str | None = None, days: int = 7) -> list[d
         timestamp, vehicle_id).
     """
     log.info("tool=get_recent_incidents vehicle_id=%r days=%d", vehicle_id, days)
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff = datetime.now(UTC) - timedelta(days=days)
     results = []
     for inc in INCIDENTS:
         inc_time = datetime.fromisoformat(inc["timestamp"].replace("Z", "+00:00"))
