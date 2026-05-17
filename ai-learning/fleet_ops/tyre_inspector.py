@@ -215,19 +215,7 @@ def analyze_with_anthropic(image_path: Path) -> TyreCondition:
 
 
 def gpt_evaluates_claude(image_path: Path, claude_result: TyreCondition) -> CrossEvaluation:
-    """
-    Show GPT the image AND Claude's assessment. Ask GPT to audit Claude.
-
-    TODO: implement.
-
-    Hints:
-    - System prompt = CROSS_EVAL_PROMPT
-    - User content has THREE parts:
-        1. A text block: "Other model's assessment:\n" + claude_result.model_dump_json(indent=2)
-        2. A text block: "Now evaluate that assessment against the image:"
-        3. The image as image_url (same shape as analyze_with_openai)
-    - Use openai_client.chat.completions.parse(...) with response_format=CrossEvaluation
-    """
+    """Audit Claude's tyre assessment using GPT. Returns a CrossEvaluation."""
     response = openai_client.chat.completions.parse(
         model=OPENAI_MODEL,
         messages=[
@@ -256,15 +244,7 @@ def gpt_evaluates_claude(image_path: Path, claude_result: TyreCondition) -> Cros
 
 
 def claude_evaluates_gpt(image_path: Path, gpt_result: TyreCondition) -> CrossEvaluation:
-    """
-    Show Claude the image AND GPT's assessment. Ask Claude to audit GPT.
-    Hints:
-    - System prompt = CROSS_EVAL_PROMPT
-    - Use the tool_use trick (same as analyze_with_anthropic), but with
-      CrossEvaluation.model_json_schema() as the tool's input_schema.
-    - Tool name something like "evaluate_other_model".
-    - User content: text with gpt_result.model_dump_json() + image.
-    """
+    """Audit GPT's tyre assessment using Claude. Returns a CrossEvaluation."""
     response = anthropic_client.messages.create(  # type: ignore[call-overload]
         model=ANTHROPIC_MODEL,
         max_tokens=1024,
