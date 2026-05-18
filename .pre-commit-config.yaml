@@ -23,6 +23,7 @@ repos:
     rev: v1.13.0
     hooks:
       - id: mypy
+        exclude: '^ai-learning/gradio-playground/'
         additional_dependencies:
           - pydantic>=2.6
           - types-requests

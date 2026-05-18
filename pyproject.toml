@@ -121,6 +121,10 @@ no_implicit_optional = true
 check_untyped_defs = true
 warn_return_any = true
 plugins = ["pydantic.mypy"]
+# Experimental/portfolio code lives under ai-learning. It uses sys.path
+# hacks to import across sibling directories, which mypy can't follow.
+# Keep strict checking on src/siphyy + tests; relax it for the playground.
+exclude = ["ai-learning/gradio-playground/"]
 
 [[tool.mypy.overrides]]
 module = ["pandas.*", "numpy.*"]
