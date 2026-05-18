@@ -2,7 +2,7 @@
 #    uv pip compile pyproject.toml -o requirements.txt
 annotated-types==0.7.0
     # via pydantic
-numpy==2.2.6
+numpy==2.4.5
     # via siphyy (pyproject.toml)
 pydantic==2.13.4
     # via siphyy (pyproject.toml)
